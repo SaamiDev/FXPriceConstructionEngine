@@ -1,16 +1,20 @@
-# This is a sample Python script.
+from UI.MainWindow import MainWindow
 
-# Press Mayús+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+class AppController:
+    """
+    Controller global de la aplicación.
+    Aquí se guarda el estado compartido:
+    - last_raw_scp
+    - futuros flags / configs
+    """
+    def __init__(self):
+        self.last_raw_scp = None
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+def main():
+    controller = AppController()
+    app = MainWindow(controller)
+    app.mainloop()
 
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    main()
