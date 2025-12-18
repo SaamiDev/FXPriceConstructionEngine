@@ -17,48 +17,79 @@ class TraceImportScreen(tk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
-        # ---------------- HEADER ----------------
-        header = tk.Frame(self, bg=BACKGROUND)
-        header.pack(fill="x", padx=20, pady=(15, 5))
 
-        back_btn = tk.Button(
+        # ===== CONTENEDOR PRINCIPAL =====
+        container = tk.Frame(self, bg=BACKGROUND)
+        container.pack(fill="both", expand=True, padx=50)
+
+        # ========== HEADER ==========
+        header = tk.Frame(container, bg="#F4F6F8", height=56)
+        header.pack(fill="x", pady=(15, 10))
+
+        back_btn = tk.Label(
             header,
             text="← Volver",
-            font=(FONT_FAMILY, 10, "bold"),
-            bg=BACKGROUND,
-            bd=0,
-            activebackground=BACKGROUND,
-            cursor="hand2",
-            command=self.go_back
+            font=(FONT_FAMILY, 11, "bold"),
+            bg="#F4F6F8",
+            fg="#0A58CA",
+            cursor="hand2"
         )
         back_btn.pack(side="left")
+        back_btn.bind("<Button-1>", lambda e: self.go_back())
 
         tk.Label(
             header,
             text="Importar Traza SCP",
             font=(FONT_FAMILY, 16, "bold"),
-            bg=BACKGROUND
-        ).pack(side="left", padx=20)
+            bg="#F4F6F8"
+        ).pack(side="left", padx=15)
 
-        # ---------------- TEXT AREA ----------------
-        self.text_area = scrolledtext.ScrolledText(
-            self,
-            width=120,
-            height=22,
-            font=(FONT_FAMILY, 10)
+        # ========== BODY ==========
+        body = tk.Frame(container, bg=BACKGROUND)
+        body.pack(fill="both", expand=True, pady=(10, 30))
+
+        tk.Label(
+            body,
+            text=(
+                "Pega aquí la traza SCP completa tal y como aparece en los logs "
+                "de pricing (Spot / RFS / RFQ)."
+            ),
+            font=(FONT_FAMILY, 11),
+            bg=BACKGROUND,
+            fg="#555",
+            wraplength=900,
+            justify="left"
+        ).pack(anchor="w", pady=(0, 15))
+
+        # ========== CARD ==========
+        card = tk.Frame(
+            body,
+            bg="white",
+            highlightbackground="#D0D5DD",
+            highlightthickness=1
         )
-        self.text_area.pack(padx=20, pady=10)
+        card.pack(fill="both", expand=True)
 
-        # ---------------- SAVE BUTTON ----------------
+        # 👉 AQUÍ VA EL SCROLLEDTEXT (editable)
+        self.text_area = scrolledtext.ScrolledText(
+            card,
+            font=(FONT_FAMILY, 10),
+            relief="flat",
+            bd=0,
+            wrap="none"
+        )
+        self.text_area.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # ========== BOTÓN GUARDAR ==========
         self.save_button = StyledButton(
-            self,
+            body,
             "Guardar SCP",
             command=self.save_scp,
             bg="#198754",
             width=20,
             height=2
         )
-        self.save_button.pack(pady=10)
+        self.save_button.pack(pady=(20, 0))
 
     # ---------------- NAVEGACIÓN ----------------
 
