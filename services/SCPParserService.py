@@ -4,6 +4,10 @@ from decimal import Decimal, getcontext
 # Precisión suficiente para FX / spreads
 getcontext().prec = 18
 
+def decimal_serializer(obj):
+    if isinstance(obj, Decimal):
+        return format(obj, "f")  # sin notación científica
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 # -------------------- ATOMS --------------------
 

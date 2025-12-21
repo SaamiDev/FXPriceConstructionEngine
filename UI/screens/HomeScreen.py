@@ -5,7 +5,7 @@ from tkinter import messagebox
 
 from UI.components.StyledButton import StyledButton
 from UI.styles.theme import BACKGROUND, FONT_FAMILY
-from services.SCPParserService import parse_block
+from services.SCPParserService import parse_block, decimal_serializer
 
 
 class HomeScreen(tk.Frame):
@@ -94,6 +94,14 @@ class HomeScreen(tk.Frame):
             height=btn_height
         ).grid(row=0, column=2, padx=10)
 
+        StyledButton(
+            button_frame,
+            "Ver CRL",
+            command=self.open_trace_import,
+            width=btn_width,
+            height=btn_height
+        ).grid(row=0, column=3, padx=10)
+
     # ---------------- EVENTOS ----------------
 
     def on_search(self):
@@ -115,6 +123,7 @@ class HomeScreen(tk.Frame):
             os.makedirs(raw_dir, exist_ok=True)
             os.makedirs(parsed_dir, exist_ok=True)
 
+            # Traza cargada desde Importar SCP
             raw_scp = getattr(self.controller, "last_raw_scp", None)
 
             if not raw_scp:
@@ -124,6 +133,7 @@ class HomeScreen(tk.Frame):
                 )
                 return
 
+            # 🧠 Parsear SCP
             parsed_scp = parse_block(raw_scp)
 
             scp_id = parsed_scp.get("id")
@@ -133,12 +143,20 @@ class HomeScreen(tk.Frame):
             raw_path = os.path.join(raw_dir, f"{scp_id}.txt")
             parsed_path = os.path.join(parsed_dir, f"{scp_id}.json")
 
+            # Guardar RAW solo si no existe
             if not os.path.exists(raw_path):
                 with open(raw_path, "w", encoding="utf-8") as f:
                     f.write(raw_scp)
 
+            # Guardar PARSED usando serializer Decimal
             with open(parsed_path, "w", encoding="utf-8") as f:
-                json.dump(parsed_scp, f, indent=2, ensure_ascii=False)
+                json.dump(
+                    parsed_scp,
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
+                    default=decimal_serializer
+                )
 
             messagebox.showinfo(
                 "Spot desglosado",
@@ -146,7 +164,10 @@ class HomeScreen(tk.Frame):
             )
 
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror(
+                "Error",
+                f"Error al desglosar Spot:\n{e}"
+            )
 
     def open_trace_import(self):
         for widget in self.master.winfo_children():
@@ -154,3 +175,14 @@ class HomeScreen(tk.Frame):
 
         from UI.screens.TraceImportScreen import TraceImportScreen
         TraceImportScreen(self.master, controller=self.controller)
+
+    def open_crl_view(self):
+        """
+        Navega a la vista de CRL
+        """
+        from tkinter import messagebox
+
+        messagebox.showinfo(
+            "Ver CRL",
+            "Vista de CRL pendiente de implementar."
+        )

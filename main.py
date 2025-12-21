@@ -9,6 +9,7 @@ class AppController:
     """
     def __init__(self):
         self.last_raw_scp = None
+        self.active_scp_id = None
 
 
 def main():

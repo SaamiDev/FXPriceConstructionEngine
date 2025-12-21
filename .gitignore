@@ -1,4 +1,11 @@
-resources/scp/history/*
+# Datos SCP (histórico / runtime)
+resources/scp/history/
+resources/scp/*.txt
+resources/scp/*.json
+
+# Python
 __pycache__/
 *.pyc
-.env
+
+# OS
+.DS_Store

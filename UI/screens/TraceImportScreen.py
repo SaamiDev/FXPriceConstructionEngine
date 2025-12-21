@@ -172,10 +172,15 @@ class TraceImportScreen(tk.Frame):
 
             # 🔒 DEDUPLICACIÓN AQUÍ (lugar correcto)
             if os.path.exists(raw_path):
+                # 👉 AUNQUE SEA DUPLICADO, MARCAMOS SCP ACTIVO
+                if self.controller:
+                    self.controller.last_raw_scp = content
+                    self.controller.active_scp_id = scp_id
+
                 messagebox.showinfo(
                     "Traza duplicada",
                     f"Ya existe una traza SCP con ID:\n\n{scp_id}\n\n"
-                    "No se ha importado de nuevo."
+                    "Se usará esta traza para el desglose."
                 )
                 return
 
@@ -186,6 +191,7 @@ class TraceImportScreen(tk.Frame):
             # Guardar en controller (solo si es NUEVA)
             if self.controller:
                 self.controller.last_raw_scp = content
+                self.controller.active_scp_id = scp_id
 
             messagebox.showinfo(
                 "Éxito",
