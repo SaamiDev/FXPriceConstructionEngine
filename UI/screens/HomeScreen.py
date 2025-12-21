@@ -97,7 +97,7 @@ class HomeScreen(tk.Frame):
         StyledButton(
             button_frame,
             "Ver CRL",
-            command=self.open_trace_import,
+            command=self.open_crl_view,
             width=btn_width,
             height=btn_height
         ).grid(row=0, column=3, padx=10)
@@ -135,6 +135,7 @@ class HomeScreen(tk.Frame):
 
             # 🧠 Parsear SCP
             parsed_scp = parse_block(raw_scp)
+            self.controller.last_parsed_scp = parsed_scp
 
             scp_id = parsed_scp.get("id")
             if not scp_id:
@@ -177,12 +178,8 @@ class HomeScreen(tk.Frame):
         TraceImportScreen(self.master, controller=self.controller)
 
     def open_crl_view(self):
-        """
-        Navega a la vista de CRL
-        """
-        from tkinter import messagebox
+        for widget in self.master.winfo_children():
+            widget.destroy()
 
-        messagebox.showinfo(
-            "Ver CRL",
-            "Vista de CRL pendiente de implementar."
-        )
+        from UI.screens.CRLScreen import CRLScreen
+        CRLScreen(self.master, controller=self.controller)
