@@ -1,37 +1,34 @@
-import tkinter as tk
-from UI.styles.theme import FONT_FAMILY
 
+import tkinter as tk
+from UI.styles.desk_theme import *
 
 class Header(tk.Frame):
-    def __init__(
-        self,
-        parent,
-        title: str,
-        on_back,
-        bg="#F4F6F8",
-        fg="#0A58CA",
-        height=56
-    ):
-        super().__init__(parent, bg=bg, height=height)
-
-        self.pack(fill="x", pady=(15, 10))
-        self.pack_propagate(False)
-
-        back_btn = tk.Label(
-            self,
-            text="← Volver",
-            font=(FONT_FAMILY, 11, "bold"),
-            bg=bg,
-            fg=fg,
-            cursor="hand2"
+    def __init__(self, parent, title, on_back=None):
+        super().__init__(
+            parent,
+            bg=BG_PANEL,
+            height=48,
+            highlightbackground=BORDER,
+            highlightthickness=1
         )
-        back_btn.pack(side="left", padx=(20, 10))
-        back_btn.bind("<Button-1>", lambda e: on_back())
+        self.pack(fill="x")
 
-        title_lbl = tk.Label(
+        if on_back:
+            back = tk.Label(
+                self,
+                text="← Back",
+                fg=ACCENT_LINK,
+                bg=BG_PANEL,
+                font=FONT_BOLD,
+                cursor="hand2"
+            )
+            back.pack(side="left", padx=14)
+            back.bind("<Button-1>", lambda e: on_back())
+
+        tk.Label(
             self,
-            text=title,
-            font=(FONT_FAMILY, 16, "bold"),
-            bg=bg
-        )
-        title_lbl.pack(side="left", padx=10)
+            text=title.upper(),
+            fg=TEXT_PRIMARY,
+            bg=BG_PANEL,
+            font=FONT_BOLD
+        ).pack(side="left", padx=12)

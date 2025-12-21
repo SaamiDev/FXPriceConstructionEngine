@@ -1,21 +1,31 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 from decimal import Decimal
 
 from UI.components.Header import Header
-from UI.styles.theme import BACKGROUND, FONT_FAMILY
+from UI.styles.desk_theme import (
+    BG_MAIN,
+    BG_PANEL,
+    BG_CARD,
+    BORDER,
+    TEXT_PRIMARY,
+    TEXT_SECONDARY,
+    ACCENT_ACTIVE,
+    FONT_NORMAL,
+    FONT_BOLD
+)
 from services.CRLService import extract_all_crls, explain_triangulation
 
 
 class CRLScreen(tk.Frame):
     def __init__(self, master, controller=None):
-        super().__init__(master, bg=BACKGROUND)
+        super().__init__(master, bg=BG_MAIN)
         self.controller = controller
         self.pack(fill="both", expand=True)
 
-        self.tree = None
         self.final_crl_pair = None
         self.final_crl_origin = None
+        self.active_row_bbox = None
 
         self.create_widgets()
 
@@ -29,7 +39,6 @@ class CRLScreen(tk.Frame):
         )
 
         parsed_scp = getattr(self.controller, "last_parsed_scp", None)
-
         if not parsed_scp:
             messagebox.showwarning("Sin datos", "No hay ningún SCP desglosado.")
             return
@@ -64,101 +73,97 @@ class CRLScreen(tk.Frame):
     # ================= SUMMARY =================
 
     def render_crl_summary(self, crls):
-        summary = tk.Frame(self, bg=BACKGROUND)
-        summary.pack(fill="x", padx=30, pady=15)
+        summary_wrapper = tk.Frame(self, bg=BG_MAIN)
+        summary_wrapper.pack(fill="x", pady=20)
 
-        CARD_WIDTH = 260
-        CARD_HEIGHT = 120
+        summary = tk.Frame(summary_wrapper, bg=BG_MAIN)
+        summary.pack(anchor="center")
+
+        CARD_WIDTH = 320
+        CARD_HEIGHT = 150
 
         for crl in crls:
             card = tk.Frame(
                 summary,
-                bg="#F4F6F8",
+                bg=BG_CARD,
                 width=CARD_WIDTH,
                 height=CARD_HEIGHT,
-                highlightbackground="#DEE2E6",
+                highlightbackground=BORDER,
                 highlightthickness=1
             )
-            card.pack(side="left", padx=10)
+            card.pack(side="left", padx=16)
             card.pack_propagate(False)
 
-            inner = tk.Frame(card, bg="#F4F6F8")
-            inner.pack(expand=True, fill="both", padx=12, pady=10)
+            inner = tk.Frame(card, bg=BG_CARD)
+            inner.pack(expand=True, fill="both", padx=16, pady=14)
 
             tk.Label(
                 inner,
                 text=crl["ccyPair"],
-                font=(FONT_FAMILY, 12, "bold"),
-                bg="#F4F6F8",
-                fg="black"
+                font=FONT_BOLD,
+                bg=BG_CARD,
+                fg=TEXT_PRIMARY
             ).pack(anchor="w")
 
             tk.Label(
                 inner,
                 text=f'ID: {crl["id"]}',
-                font=(FONT_FAMILY, 9),
-                bg="#F4F6F8",
-                fg="#6C757D"
-            ).pack(anchor="w", pady=(2, 6))
+                font=FONT_NORMAL,
+                bg=BG_CARD,
+                fg=TEXT_SECONDARY
+            ).pack(anchor="w", pady=(4, 10))
 
             tk.Label(
                 inner,
                 text=f'{crl["origin"]} | {crl["valDt"]}',
-                font=(FONT_FAMILY, 10),
-                bg="#F4F6F8",
-                fg="black"
+                font=FONT_NORMAL,
+                bg=BG_CARD,
+                fg=TEXT_PRIMARY
             ).pack(anchor="w")
 
             tk.Label(
                 inner,
                 text=crl["rType"],
-                font=(FONT_FAMILY, 10),
-                bg="#F4F6F8",
-                fg="black"
-            ).pack(anchor="w")
+                font=FONT_NORMAL,
+                bg=BG_CARD,
+                fg=TEXT_PRIMARY
+            ).pack(anchor="w", pady=(6, 0))
 
     # ================= TABLE =================
 
     def render_rungs_table(self, crls, notional):
-        table_frame = tk.Frame(self, bg=BACKGROUND)
-        table_frame.pack(fill="both", expand=True, padx=30, pady=10)
+        frame = tk.Frame(self, bg=BG_MAIN)
+        frame.pack(fill="both", expand=True, padx=40, pady=10)
 
-        columns = (
-            "ccyPair",
-            "amt",
-            "bid",
-            "ask",
-            "spread",
-            "bidCond",
-            "askCond"
-        )
+        canvas = tk.Canvas(frame, bg=BG_MAIN, highlightthickness=0)
+        canvas.pack(fill="both", expand=True)
 
-        self.tree = ttk.Treeview(
-            table_frame,
-            columns=columns,
-            show="headings",
-            height=10
-        )
+        canvas.bind("<Double-1>", self.on_canvas_double_click)
 
-        headings = {
-            "ccyPair": "CCY Pair",
-            "amt": "Amount",
-            "bid": "Bid",
-            "ask": "Ask",
-            "spread": "Spread",
-            "bidCond": "Bid Cond",
-            "askCond": "Ask Cond"
-        }
+        headers = ["CCY", "Amount", "Bid", "Ask", "Spread"]
+        col_widths = [110, 150, 150, 150, 150]
+        row_h = 38
 
-        for col in columns:
-            self.tree.heading(col, text=headings[col])
-            self.tree.column(col, anchor="center")
+        table_width = sum(col_widths)
 
-        self.tree.tag_configure(
-            "active_rung",
-            background="#FFA500",
-            foreground="black"
-        )
+        canvas.update_idletasks()
+        canvas_width = canvas.winfo_width() or table_width
+        x0 = (canvas_width - table_width) // 2
+        y = 24
+
+        # ---- Header ----
+        x = x0
+        for h, w in zip(headers, col_widths):
+            canvas.create_text(
+                x + w / 2,
+                y + row_h / 2,
+                text=h,
+                fill=TEXT_SECONDARY,
+                font=FONT_BOLD
+            )
+            x += w
+
+        y += row_h + 10
 
         final_crl = crls[-1]
 
@@ -174,43 +179,66 @@ class CRLScreen(tk.Frame):
                 ask = Decimal(rung["askPrice"])
                 spread = ask - bid
 
-                tags = ()
-                if crl is final_crl and rung["amt"] == active_amt:
-                    tags = ("active_rung",)
-
-                self.tree.insert(
-                    "",
-                    "end",
-                    values=(
-                        crl["ccyPair"],
-                        rung["amt"],
-                        f"{bid:.5f}",
-                        f"{ask:.5f}",
-                        f"{spread:.5f}",
-                        rung["bidCond"],
-                        rung["askCond"]
-                    ),
-                    tags=tags
+                is_active = (
+                    crl is final_crl and rung["amt"] == active_amt
                 )
 
-        self.tree.pack(fill="both", expand=True)
-        self.tree.bind("<Double-1>", self.on_rung_double_click)
+                bg = ACCENT_ACTIVE if is_active else BG_CARD
+                fg = "black" if is_active else TEXT_PRIMARY
 
-    # ================= TRIANGULATION =================
+                rect = canvas.create_rectangle(
+                    x0, y,
+                    x0 + table_width,
+                    y + row_h,
+                    fill=bg,
+                    outline=""
+                )
 
-    def on_rung_double_click(self, event):
-        selected = self.tree.focus()
-        if not selected:
+                if is_active:
+                    self.active_row_bbox = canvas.bbox(rect)
+
+                values = [
+                    crl["ccyPair"],
+                    rung["amt"],
+                    f"{bid:.5f}",
+                    f"{ask:.5f}",
+                    f"{spread:.5f}"
+                ]
+
+                colors = [
+                    fg,
+                    fg,
+                    "#10B981",  # BID verde
+                    "#EF4444",  # ASK rojo
+                    TEXT_SECONDARY
+                ]
+
+                x = x0
+                for val, w, c in zip(values, col_widths, colors):
+                    canvas.create_text(
+                        x + w / 2,
+                        y + row_h / 2,
+                        text=val,
+                        fill=c if not is_active else "black",
+                        font=FONT_NORMAL
+                    )
+                    x += w
+
+                y += row_h + 8
+
+        self.canvas = canvas
+
+    # ================= INTERACTION =================
+
+    def on_canvas_double_click(self, event):
+        if not self.active_row_bbox:
             return
 
-        values = self.tree.item(selected, "values")
-        clicked_pair = values[0]
+        x1, y1, x2, y2 = self.active_row_bbox
+        if not (x1 <= event.x <= x2 and y1 <= event.y <= y2):
+            return
 
-        # SOLO CRL FINAL y SOLO si es SYNTHETIC
-        if (
-            clicked_pair != self.final_crl_pair
-            or self.final_crl_origin != "SYNTHETIC"
-        ):
+        if self.final_crl_origin != "SYNTHETIC":
             return
 
         try:
@@ -219,51 +247,63 @@ class CRLScreen(tk.Frame):
         except Exception as e:
             messagebox.showerror("Calculation error", str(e))
 
+    # ================= POPUP =================
+
     def show_calculation_popup(self, data):
         popup = tk.Toplevel(self)
-        popup.title("Triangulated price calculation")
-        popup.geometry("520x360")
+        popup.title("Price construction")
+        popup.geometry("560x440")
+        popup.configure(bg=BG_MAIN)
         popup.resizable(False, False)
+        popup.transient(self)
+        popup.grab_set()
 
-        container = tk.Frame(popup, padx=16, pady=14)
+        container = tk.Frame(popup, bg=BG_MAIN, padx=20, pady=18)
         container.pack(fill="both", expand=True)
-
-        def section(title):
-            tk.Label(
-                container,
-                text=title,
-                font=(FONT_FAMILY, 11, "bold")
-            ).pack(anchor="w", pady=(12, 4))
-
-        def line(text):
-            tk.Label(
-                container,
-                text=text,
-                font=(FONT_FAMILY, 10),
-                justify="left",
-                anchor="w"
-            ).pack(anchor="w")
 
         tk.Label(
             container,
-            text=f"Final pair: {data['finalPair']}",
-            font=(FONT_FAMILY, 12, "bold")
-        ).pack(anchor="w")
+            text=f"Price construction – {data['finalPair']}",
+            font=FONT_BOLD,
+            bg=BG_MAIN,
+            fg=TEXT_PRIMARY
+        ).pack(anchor="w", pady=(0, 18))
 
-        section("BID")
-        bid = data["bid"]
-        line(" × ".join(
-            f"{c['pair']} ({c['bid']})" for c in bid["components"]
-        ))
-        line(f"= {bid['result']}")
+        def block(title, payload, color):
+            card = tk.Frame(
+                container,
+                bg=BG_PANEL,
+                highlightbackground=BORDER,
+                highlightthickness=1,
+                padx=16,
+                pady=14
+            )
+            card.pack(fill="x", pady=10)
 
-        section("ASK")
-        ask = data["ask"]
-        line(" × ".join(
-            f"{c['pair']} ({c['ask']})" for c in ask["components"]
-        ))
-        line(f"= {ask['result']}")
+            tk.Label(
+                card,
+                text=title,
+                font=FONT_BOLD,
+                bg=BG_PANEL,
+                fg=color
+            ).pack(anchor="w", pady=(0, 8))
 
-        section("Sources")
-        for src in data["sources"]:
-            line(f"- {src['pair']} ({src['origin']}) [{src['id']}]")
+            for comp in payload["components"]:
+                tk.Label(
+                    card,
+                    text=f"{comp['pair']} ({comp[title.lower()]})",
+                    font=FONT_NORMAL,
+                    bg=BG_PANEL,
+                    fg=TEXT_SECONDARY
+                ).pack(anchor="w", padx=14)
+
+            tk.Label(
+                card,
+                text=f"= {payload['result']}",
+                font=FONT_BOLD,
+                bg=BG_PANEL,
+                fg=TEXT_PRIMARY
+            ).pack(anchor="w", padx=14, pady=(8, 0))
+
+        block("BID", data["bid"], "#10B981")
+        block("ASK", data["ask"], "#EF4444")

@@ -1,20 +1,41 @@
 import tkinter as tk
-from UI.styles.theme import PRIMARY, FONT_FAMILY, FONT_SIZE_NORMAL
+from UI.styles.theme import FONT_FAMILY
 
-class StyledButton(tk.Button):
-    def __init__(self, master, text, command=None, bg=PRIMARY, **kwargs):
-        super().__init__(
-            master,
+class StyledButton(tk.Frame):
+    def __init__(self, parent, text, command=None,
+                 bg="#FF8C00", hover="#FFA733",
+                 fg="white", width=180, height=42):
+
+        super().__init__(parent, bg=bg, width=width, height=height)
+        self.command = command
+        self.default_bg = bg
+        self.hover_bg = hover
+
+        self.pack_propagate(False)
+
+        self.label = tk.Label(
+            self,
             text=text,
-            command=command,
             bg=bg,
-            fg="white",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            relief="flat",
-            bd=0,
-            padx=12,
-            pady=6,
-            activebackground=bg,
-            activeforeground="white",
-            **kwargs  # Esto permite width, height y cualquier opción de Tkinter
+            fg=fg,
+            font=(FONT_FAMILY, 11, "bold"),
+            cursor="hand2"
         )
+        self.label.pack(expand=True, fill="both")
+
+        # Events
+        self.label.bind("<Enter>", self._on_enter)
+        self.label.bind("<Leave>", self._on_leave)
+        self.label.bind("<Button-1>", self._on_click)
+
+    def _on_enter(self, _):
+        self.config(bg=self.hover_bg)
+        self.label.config(bg=self.hover_bg)
+
+    def _on_leave(self, _):
+        self.config(bg=self.default_bg)
+        self.label.config(bg=self.default_bg)
+
+    def _on_click(self, _):
+        if self.command:
+            self.command()
