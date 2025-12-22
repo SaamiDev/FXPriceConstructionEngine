@@ -1,0 +1,19 @@
+{
+  "context": {
+    "ccyPair": "EURUSD",
+    "venue": "CH-360T-SST",
+    "group": "360T_Strm_Gold",
+    "smType": "SPOT",
+    "prcModel": "ESP",
+    "priceCompetition": "Y"
+  },
+  "client": {
+    "venueClientId": null,
+    "venueAccountId": null,
+    "venueUserId": null
+  },
+  "notional": {
+    "amount": null,
+    "side": null
+  }
+}

@@ -86,60 +86,14 @@ class HomeScreen(tk.Frame):
 
     def on_spot(self):
         """
-        Ejecuta el parser SCP usando la traza cargada
-        en el controller y guarda raw + parsed
+        Abre la pantalla de Desglose Spot.
+        Puede abrirse incluso sin SCP cargado.
         """
-        try:
-            base_dir = os.path.join(os.getcwd(), "resources", "scp", "history")
-            raw_dir = os.path.join(base_dir, "raw")
-            parsed_dir = os.path.join(base_dir, "parsed")
+        for widget in self.master.winfo_children():
+            widget.destroy()
 
-            os.makedirs(raw_dir, exist_ok=True)
-            os.makedirs(parsed_dir, exist_ok=True)
-
-            raw_scp = getattr(self.controller, "last_raw_scp", None)
-
-            if not raw_scp:
-                messagebox.showwarning(
-                    "Traza no encontrada",
-                    "Importa primero una traza SCP."
-                )
-                return
-
-            parsed_scp = parse_block(raw_scp)
-            self.controller.last_parsed_scp = parsed_scp
-
-            scp_id = parsed_scp.get("id")
-            if not scp_id:
-                raise ValueError("No se pudo extraer el ID del SCP")
-
-            raw_path = os.path.join(raw_dir, f"{scp_id}.txt")
-            parsed_path = os.path.join(parsed_dir, f"{scp_id}.json")
-
-            if not os.path.exists(raw_path):
-                with open(raw_path, "w", encoding="utf-8") as f:
-                    f.write(raw_scp)
-
-            with open(parsed_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    parsed_scp,
-                    f,
-                    indent=2,
-                    ensure_ascii=False,
-                    default=decimal_serializer
-                )
-
-            messagebox.showinfo(
-                "Proceso completado",
-                f"SCP procesado correctamente.\n\nID: {scp_id}"
-            )
-
-        except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Error al desglosar Spot:\n{e}"
-            )
-
+        from UI.screens.SpotConstructionScreen import SpotConstructionScreen
+        SpotConstructionScreen(self.master, controller=self.controller)
     # ================= NAV =================
 
     def open_trace_import(self):

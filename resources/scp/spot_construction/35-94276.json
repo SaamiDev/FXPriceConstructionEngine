@@ -1,0 +1,56 @@
+{
+  "context": {
+    "ccyPair": "USDMXN",
+    "venue": "SBP",
+    "group": null,
+    "smType": "FWD_SPOT",
+    "prcModel": "RFS",
+    "priceCompetition": "N"
+  },
+  "client": {
+    "venueClientId": 24103,
+    "venueAccountId": "MEX022047",
+    "venueUserId": null
+  },
+  "notional": {
+    "amount": "499.75",
+    "side": "Q"
+  },
+  "rungs": [
+    {
+      "amt": 2000000,
+      "core": {
+        "bid": "18.72111",
+        "ask": "18.72749"
+      }
+    },
+    {
+      "amt": 5000000,
+      "core": {
+        "bid": "18.72092",
+        "ask": "18.72792"
+      }
+    },
+    {
+      "amt": 10000000,
+      "core": {
+        "bid": "18.71795",
+        "ask": "18.7312"
+      }
+    },
+    {
+      "amt": 20000000,
+      "core": {
+        "bid": "18.71741",
+        "ask": "18.73194"
+      }
+    },
+    {
+      "amt": 50000000,
+      "core": {
+        "bid": "18.71069",
+        "ask": "18.73877"
+      }
+    }
+  ]
+}

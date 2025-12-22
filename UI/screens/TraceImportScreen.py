@@ -1,9 +1,11 @@
 import os
+import json
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
 
 from UI.components.StyledButton import StyledButton
 from UI.components.Header import Header
+from services.SPOTConstructionService import SPOTConstructionService
 
 from UI.styles.desk_theme import (
     BG_MAIN,
@@ -18,7 +20,11 @@ from UI.styles.desk_theme import (
     FONT_MONO,
     ACCENT_LINK,
 )
-from services.SCPParserService import parse_block
+
+from services.SCPParserService import (
+    parse_block,
+    decimal_serializer
+)
 
 
 class TraceImportScreen(tk.Frame):
@@ -103,45 +109,63 @@ class TraceImportScreen(tk.Frame):
             return
 
         try:
-            parsed_tmp = parse_block(content)
-            scp_id = parsed_tmp.get("id")
+
+            parsed_scp = parse_block(content)
+            scp_id = parsed_scp.get("id")
 
             if not scp_id:
                 raise ValueError("No se pudo extraer el ID del SCP")
 
-            base_dir = os.path.join(
-                os.getcwd(),
-                "resources",
-                "scp",
-                "history"
-            )
-            raw_dir = os.path.join(base_dir, "raw")
+            base_path = os.getcwd()
+            scp_base = os.path.join(base_path, "resources", "scp")
+
+            raw_dir = os.path.join(scp_base, "history", "raw")
+            parsed_dir = os.path.join(scp_base, "history", "parsed")
+
             os.makedirs(raw_dir, exist_ok=True)
+            os.makedirs(parsed_dir, exist_ok=True)
 
             raw_path = os.path.join(raw_dir, f"{scp_id}.txt")
+            parsed_path = os.path.join(parsed_dir, f"{scp_id}.json")
 
-            # Guardar siempre en memoria
+
             if self.controller:
                 self.controller.last_raw_scp = content
+                self.controller.last_parsed_scp = parsed_scp
                 self.controller.active_scp_id = scp_id
 
-            # ── SCP duplicado ──
-            if os.path.exists(raw_path):
-                messagebox.showinfo(
-                    "Traza existente",
-                    f"La traza SCP con ID {scp_id} ya existe.\n\n"
-                    "Se usará para el desglose."
-                )
-                self.go_back()
-                return
 
-            # ── SCP nuevo ──
-            with open(raw_path, "w", encoding="utf-8") as f:
-                f.write(content)
+            if not os.path.exists(raw_path):
+                with open(raw_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+
+            with open(parsed_path, "w", encoding="utf-8") as f:
+                json.dump(
+                    parsed_scp,
+                    f,
+                    indent=2,
+                    ensure_ascii=False,
+                    default=str
+                )
+
+
+            spot_service = SPOTConstructionService(
+                parsed_scp=parsed_scp,
+                base_path=base_path
+            )
+
+            spot_path = spot_service.save()
+
+
+            if self.controller:
+                self.controller.last_spot_construction_path = spot_path
+
 
             messagebox.showinfo(
                 "Importación correcta",
-                f"SCP importado correctamente.\n\nID: {scp_id}"
+                f"SCP importado y procesado correctamente.\n\n"
+                f"ID: {scp_id}"
             )
 
             self.go_back()
@@ -149,5 +173,5 @@ class TraceImportScreen(tk.Frame):
         except Exception as e:
             messagebox.showerror(
                 "Error",
-                f"No se pudo guardar la traza SCP:\n{e}"
+                f"No se pudo importar la traza SCP:\n{e}"
             )

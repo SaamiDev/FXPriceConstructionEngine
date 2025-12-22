@@ -1,0 +1,28 @@
+{
+  "context": {
+    "ccyPair": "EURBGN",
+    "venue": "CH-CAPLIN",
+    "group": null,
+    "smType": "SPOT",
+    "prcModel": "RFS",
+    "priceCompetition": "N"
+  },
+  "client": {
+    "venueClientId": 28542,
+    "venueAccountId": 15986,
+    "venueUserId": "U215788"
+  },
+  "notional": {
+    "amount": "20779.61",
+    "side": "Q"
+  },
+  "rungs": [
+    {
+      "amt": 2000000,
+      "core": {
+        "bid": "1.9532",
+        "ask": "1.9580"
+      }
+    }
+  ]
+}
