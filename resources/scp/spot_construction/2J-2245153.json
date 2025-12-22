@@ -8,7 +8,7 @@
     "priceCompetition": "N"
   },
   "client": {
-    "venueClientId": 28542,
+    "venueClientId": "285z42",
     "venueAccountId": 15986,
     "venueUserId": "U215788"
   },
@@ -22,6 +22,20 @@
       "core": {
         "bid": "1.9532",
         "ask": "1.9580"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "1.9532",
+        "ask": "1.9580"
+      },
+      "midSpread": {
+        "mid": "1.9556",
+        "spread": "0.0048"
       }
     }
   ]

@@ -4,15 +4,36 @@ from decimal import Decimal, getcontext
 # Precisión suficiente para FX / spreads
 getcontext().prec = 18
 
+
+# ================= SERIALIZER =================
+
 def decimal_serializer(obj):
     if isinstance(obj, Decimal):
         return format(obj, "f")  # sin notación científica
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-# -------------------- ATOMS --------------------
+
+# ================= NORMALIZADOR =================
+
+_DECIMAL_EU_RE = re.compile(r'(\d+),(\d+)')
+
+
+def normalize_numbers(val: str) -> str:
+    """
+    Convierte decimales europeos a formato estándar:
+    0,80173  -> 0.80173
+    17660840,23 -> 17660840.23
+    """
+    return _DECIMAL_EU_RE.sub(r'\1.\2', val)
+
+
+# ================= ATOMS =================
 
 def parse_atom(val: str):
     val = val.strip()
+
+    # Normalizar decimales europeos
+    val = normalize_numbers(val)
 
     # Booleanos Java-style
     if val in ("T", "F"):
@@ -36,7 +57,7 @@ def parse_atom(val: str):
             "side": side.strip()
         }
 
-    # Números (usar Decimal para evitar notación científica)
+    # Números (Decimal siempre que haya punto)
     try:
         if "." in val or "e" in val.lower():
             return Decimal(val)
@@ -45,7 +66,7 @@ def parse_atom(val: str):
         return val
 
 
-# -------------------- HELPERS --------------------
+# ================= HELPERS =================
 
 def split_top_level(s: str, sep=","):
     """
@@ -74,10 +95,13 @@ def split_top_level(s: str, sep=","):
     return parts
 
 
-# -------------------- PARSING --------------------
+# ================= PARSING =================
 
 def parse_value(val: str):
     val = val.strip()
+
+    # Normalizar números ANTES de procesar estructura
+    val = normalize_numbers(val)
 
     # Map estilo {a=b, c=d}
     if val.startswith("{") and val.endswith("}"):
@@ -87,23 +111,21 @@ def parse_value(val: str):
     if val.startswith("[") and val.endswith("]"):
         inner = split_top_level(val[1:-1])
 
-        # Detectar bloques tipo Class [...]
         has_block = any(
             re.match(r'^\w+\s*\[', item.strip())
             for item in inner
         )
 
-        # Detectar key=value puro (no bloque)
         has_kv_only = all(
             "=" in item and not re.match(r'^\w+\s*\[', item.strip())
             for item in inner
         )
 
-        # LISTA de bloques (SCPDetails, Rung, etc.)
+        # Lista de bloques (SCPDetails, Rung, etc.)
         if has_block:
             return [parse_value(item) for item in inner]
 
-        # MAPA key=value (XCalc, etc.)
+        # Mapa key=value
         if has_kv_only:
             obj = {}
             for item in inner:
@@ -111,7 +133,7 @@ def parse_value(val: str):
                 obj[k.strip()] = parse_value(v.strip())
             return obj
 
-        # Fallback: lista simple
+        # Lista simple
         return [parse_value(item) for item in inner]
 
     # Bloque Class [...]
@@ -135,7 +157,9 @@ def parse_block(s: str):
     """
     Parsea ClassName[ ... ] → dict con __type__
     """
-    m = re.match(r'^(\w+)\s*\[(.*)\]$', s.strip(), re.DOTALL)
+    s = s.strip()
+
+    m = re.match(r'^(\w+)\s*\[(.*)\]$', s, re.DOTALL)
     if not m:
         return s
 

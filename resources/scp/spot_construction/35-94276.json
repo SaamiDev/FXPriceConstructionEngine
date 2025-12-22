@@ -22,6 +22,20 @@
       "core": {
         "bid": "18.72111",
         "ask": "18.72749"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.0",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "18.72111",
+        "ask": "18.72749"
+      },
+      "midSpread": {
+        "mid": "18.72430",
+        "spread": "0.00638"
       }
     },
     {
@@ -29,6 +43,20 @@
       "core": {
         "bid": "18.72092",
         "ask": "18.72792"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.015",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "18.72092",
+        "ask": "18.72792"
+      },
+      "midSpread": {
+        "mid": "18.72442",
+        "spread": "0.00700"
       }
     },
     {
@@ -36,6 +64,20 @@
       "core": {
         "bid": "18.71795",
         "ask": "18.7312"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.02",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "18.71795",
+        "ask": "18.7312"
+      },
+      "midSpread": {
+        "mid": "18.724575",
+        "spread": "0.01325"
       }
     },
     {
@@ -43,6 +85,20 @@
       "core": {
         "bid": "18.71741",
         "ask": "18.73194"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.0",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "18.71741",
+        "ask": "18.73194"
+      },
+      "midSpread": {
+        "mid": "18.724675",
+        "spread": "0.01453"
       }
     },
     {
@@ -50,6 +106,20 @@
       "core": {
         "bid": "18.71069",
         "ask": "18.73877"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.0",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "18.71069",
+        "ask": "18.73877"
+      },
+      "midSpread": {
+        "mid": "18.72473",
+        "spread": "0.02808"
       }
     }
   ]
