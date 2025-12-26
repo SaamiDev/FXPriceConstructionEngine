@@ -30,7 +30,6 @@ class SpotConstructionScreen(tk.Frame):
     def _build_ui(self):
         Header(self, title="Desglose Spot", on_back=self.go_back)
 
-        # ---------- Refresh ----------
         refresh_bar = tk.Frame(self, bg=BG_MAIN)
         refresh_bar.pack(fill="x", pady=(8, 0))
 
@@ -49,7 +48,6 @@ class SpotConstructionScreen(tk.Frame):
         btn.bind("<Enter>", lambda e: btn.config(bg="#2563EB"))
         btn.bind("<Leave>", lambda e: btn.config(bg=ACCENT_LINK))
 
-        # ---------- Scroll ----------
         container = tk.Frame(self, bg=BG_MAIN)
         container.pack(fill="both", expand=True)
 
@@ -61,11 +59,8 @@ class SpotConstructionScreen(tk.Frame):
         self.canvas.pack(side="left", fill="both", expand=True)
 
         self.content = tk.Frame(self.canvas, bg=BG_MAIN)
-        self.window_id = self.canvas.create_window(
-            (0, 0), window=self.content, anchor="n"
-        )
+        self.window_id = self.canvas.create_window((0, 0), window=self.content, anchor="n")
 
-        # ⚠️ SOLO controlar width
         self.canvas.bind(
             "<Configure>",
             lambda e: self.canvas.itemconfig(self.window_id, width=e.width)
@@ -101,7 +96,6 @@ class SpotConstructionScreen(tk.Frame):
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # ---------- detectar rung activo ----------
         active_amt = None
         notional_raw = data.get("notional", {}).get("amount")
 
@@ -133,12 +127,8 @@ class SpotConstructionScreen(tk.Frame):
         wrapper = tk.Frame(parent, bg=BG_MAIN)
         wrapper.pack(fill="x", pady=36)
 
-        card = tk.Frame(
-            wrapper,
-            bg=BG_CARD,
-            highlightbackground=BORDER,
-            highlightthickness=1
-        )
+        card = tk.Frame(wrapper, bg=BG_CARD,
+                        highlightbackground=BORDER, highlightthickness=1)
         card.pack(fill="x", padx=24)
 
         inner = tk.Frame(card, bg=BG_CARD)
@@ -185,7 +175,7 @@ class SpotConstructionScreen(tk.Frame):
                      fg=TEXT_PRIMARY, bg=BG_CARD).pack(anchor="w")
 
     # =========================================================
-    # RUNG TABLE  ✅ AQUÍ ESTABA EL FALLO
+    # RUNG TABLE
     # =========================================================
 
     def render_rungs_table(self, parent, rungs, ccy_pair, active_amt):
@@ -199,10 +189,7 @@ class SpotConstructionScreen(tk.Frame):
             active = r.get("amt") == active_amt
 
             card = tk.Frame(
-                table,
-                bg=BG_CARD,
-                width=560,
-                height=300,
+                table, bg=BG_CARD, width=560, height=320,
                 highlightbackground=ACTIVE_BORDER if active else BORDER,
                 highlightthickness=2 if active else 1
             )
@@ -227,9 +214,9 @@ class SpotConstructionScreen(tk.Frame):
                      fg="#EF4444", bg=BG_CARD).grid(row=row, column=2)
             row += 1
 
-            amt_fmt = f"{int(r['amt']):,}".replace(",", ".")
             self._meta_row(grid, row, "CCY PAIR:", ccy_pair); row += 1
-            self._meta_row(grid, row, "AMOUNT:", amt_fmt); row += 1
+            self._meta_row(grid, row, "AMOUNT:",
+                           f"{int(r['amt']):,}".replace(",", ".")); row += 1
 
             self._price_row(grid, row, "SPOT CORE:",
                             r["core"]["bid"], r["core"]["ask"]); row += 1
@@ -248,7 +235,63 @@ class SpotConstructionScreen(tk.Frame):
             spread = r.get("midSpread", {}).get("spread")
 
             self._single_row(grid, row, "MID:", mid, TEXT_PRIMARY); row += 1
-            self._single_row(grid, row, "SPREAD:", spread, TEXT_SECONDARY)
+            self._single_row(grid, row, "SPREAD:", spread, TEXT_SECONDARY); row += 1
+
+            # VOLATILITY SCENARY → IZQUIERDA
+            tk.Label(
+                grid,
+                text="MKT MODE:",
+                font=FONT_NORMAL,
+                fg=TEXT_SECONDARY,
+                bg=BG_CARD
+            ).grid(row=row, column=0, sticky="w")
+
+            tk.Label(
+                grid,
+                text=r.get("volatilityScenario") or "-",
+                font=FONT_BOLD,
+                fg=TEXT_PRIMARY,
+                bg=BG_CARD
+            ).grid(row=row, column=0, padx=(110, 0), sticky="w")
+
+            row += 1
+
+            # RUNG MODIFIERS → IZQUIERDA
+            tk.Label(
+                grid,
+                text="RUNG MODIFIERS:",
+                font=FONT_NORMAL,
+                fg=TEXT_SECONDARY,
+                bg=BG_CARD
+            ).grid(row=row, column=0, sticky="w")
+
+            tk.Label(
+                grid,
+                text=r.get("rungModifier") or "-",
+                font=FONT_BOLD,
+                fg=TEXT_PRIMARY,
+                bg=BG_CARD,
+                wraplength=300,
+                justify="left"
+            ).grid(row=row, column=0, padx=(110, 0), sticky="w")
+
+            row += 1
+
+            # RM VALUE alineado con ASK
+            tk.Label(
+                grid, text="RM VALUE:",
+                font=FONT_NORMAL,
+                fg=TEXT_SECONDARY,
+                bg=BG_CARD
+            ).grid(row=row, column=0, sticky="w")
+
+            tk.Label(
+                grid,
+                text=r.get("RMValue") or "-",
+                font=FONT_BOLD,
+                fg=TEXT_PRIMARY,
+                bg=BG_CARD
+            ).grid(row=row, column=2)
 
     # =========================================================
     # HELPERS
@@ -273,9 +316,13 @@ class SpotConstructionScreen(tk.Frame):
     def _single_row(self, grid, row, label, value, color):
         tk.Label(grid, text=label, font=FONT_NORMAL,
                  fg=TEXT_SECONDARY, bg=BG_CARD).grid(row=row, column=0, sticky="w")
-        tk.Label(grid, text=value if value else "-",
-                 font=FONT_BOLD, fg=color,
-                 bg=BG_CARD).grid(row=row, column=2)
+        tk.Label(
+            grid,
+            text=value if value else "-",
+            font=FONT_BOLD,
+            fg=color,
+            bg=BG_CARD
+        ).grid(row=row, column=2)
 
     # =========================================================
     # NAV

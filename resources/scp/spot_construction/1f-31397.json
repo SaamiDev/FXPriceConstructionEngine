@@ -1,0 +1,117 @@
+{
+  "context": {
+    "ccyPair": "USDCHF",
+    "venue": "CH-FXALL",
+    "group": null,
+    "smType": "FWD_SPOT",
+    "prcModel": "RFS",
+    "priceCompetition": "Y"
+  },
+  "client": {
+    "venueClientId": "honeywell",
+    "venueAccountId": "HONEYWELL",
+    "venueUserId": null
+  },
+  "notional": {
+    "amount": "17660840.23",
+    "side": "Q"
+  },
+  "rungs": [
+    {
+      "amt": 2000000,
+      "core": {
+        "bid": "0.80177",
+        "ask": "0.80183"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.00004",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "0.80177",
+        "ask": "0.80183"
+      },
+      "midSpread": {
+        "mid": "0.80180",
+        "spread": "0.00006"
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": "greenVol_R_Inditex_N_FA (Rung 1 MULTIPLY 0.76)",
+      "RMValue": "0.76"
+    },
+    {
+      "amt": 5000000,
+      "core": {
+        "bid": "0.80175",
+        "ask": "0.80185"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.00006",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "0.80175",
+        "ask": "0.80185"
+      },
+      "midSpread": {
+        "mid": "0.80180",
+        "spread": "0.00010"
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": "greenVol_R_Inditex_N_FA (Rung 2 MULTIPLY 0.54)",
+      "RMValue": "0.54"
+    },
+    {
+      "amt": 10000000,
+      "core": {
+        "bid": "0.80174",
+        "ask": "0.80186"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.0001",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "0.80174",
+        "ask": "0.80186"
+      },
+      "midSpread": {
+        "mid": "0.80180",
+        "spread": "0.00012"
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": "greenVol_R_Inditex_N_FA (Rung 3 MULTIPLY 0.78)",
+      "RMValue": "0.78"
+    },
+    {
+      "amt": 20000000,
+      "core": {
+        "bid": "0.80172",
+        "ask": "0.80189"
+      },
+      "adjustment": {
+        "bidSpread": "0.0",
+        "askSpread": "0.0",
+        "minSpread": "0.00012",
+        "source": "TOM"
+      },
+      "priceAdjustment": {
+        "bid": "0.80172",
+        "ask": "0.80189"
+      },
+      "midSpread": {
+        "mid": "0.801805",
+        "spread": "0.00017"
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": "greenVol_R_Inditex_N_FA (Rung 4 MULTIPLY 0.81)",
+      "RMValue": "0.81"
+    }
+  ]
+}

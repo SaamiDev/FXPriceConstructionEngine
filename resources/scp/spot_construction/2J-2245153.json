@@ -36,7 +36,9 @@
       "midSpread": {
         "mid": "1.9556",
         "spread": "0.0048"
-      }
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": null
     }
   ]
 }

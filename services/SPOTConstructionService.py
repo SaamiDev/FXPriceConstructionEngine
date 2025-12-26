@@ -108,15 +108,20 @@ class SPOTConstructionService:
                 }
 
             price_adjustment = self._apply_adjustment(core, adjustment)
-
             mid_spread = self._calculate_mid_and_spread(price_adjustment)
+
+            volatility_scenario = self._extract_volatility_scenario()
+            rm_info = self._extract_rung_modifier(amt)
 
             result.append({
                 "amt": amt,
                 "core": core,
                 "adjustment": adjustment,
                 "priceAdjustment": price_adjustment,
-                "midSpread": mid_spread
+                "midSpread": mid_spread,
+                "volatilityScenario": volatility_scenario,
+                "rungModifier": rm_info["rungModifier"],
+                "RMValue": rm_info["RMValue"]
             })
 
         return result
@@ -196,17 +201,94 @@ class SPOTConstructionService:
 
         return index
 
+    def _extract_volatility_scenario(self) -> str:
+        """
+        Volatility scenario según tom.mktMode:
+        N -> Normal
+        A -> Active
+        B -> Busy
+        F -> Fast
+        """
+        tom = self.scp.get("tom", {})
+        mkt_mode = tom.get("mktMode", "N")
+
+        return {
+            "N": "Normal",
+            "A": "Active",
+            "B": "Busy",
+            "F": "Fast"
+        }.get(mkt_mode, "Normal")
+
+    # =========================
+    # RUNG MODIFIER
+    # =========================
+
+    def _get_active_rung_position(self, amt: int) -> int:
+        """
+        Devuelve la posición (1-based) del rung activo según CRL
+        """
+        crl = self.scp.get("crl", {})
+        rungs = crl.get("rungs", [])
+
+        for idx, r in enumerate(rungs, start=1):
+            if int(r.get("amt")) == amt:
+                return idx
+
+        return 1
+
+    def _extract_rung_modifier(self, amt: int) -> Dict[str, str | None]:
+        """
+        Devuelve:
+        {
+          "rungModifier": "greenRM_B_FA (Rung 1 MULTIPLY 3)",
+          "RMValue": "3"
+        }
+        """
+        tmu = self.scp.get("tmu", {})
+        tom = self.scp.get("tom", {})
+
+        package = tmu.get("package")
+        if not package:
+            return {"rungModifier": None, "RMValue": None}
+
+        scenario = tom.get("mktMode", "N")
+        rung_modifiers = tmu.get("rungmodifiers", {}).get(scenario)
+
+        if not rung_modifiers:
+            return {"rungModifier": None, "RMValue": None}
+
+        rung_position = self._get_active_rung_position(amt)
+
+        for rm in rung_modifiers:
+            if rm.get("rung") == rung_position:
+                rm_type = rm.get("type")
+                rm_value = rm.get("value")
+
+                return {
+                    "rungModifier": (
+                        f"{package}_{scenario}_FA "
+                        f"(Rung {rung_position} {rm_type} {rm_value})"
+                    ),
+                    "RMValue": str(rm_value)
+                }
+
+        return {"rungModifier": None, "RMValue": None}
+
+    # =========================
+    # MID / SPREAD
+    # =========================
+
     def _calculate_mid_and_spread(
-                self,
-                price: Dict[str, str]
-        ) -> Dict[str, str]:
-            bid = Decimal(price["bid"])
-            ask = Decimal(price["ask"])
+        self,
+        price: Dict[str, str]
+    ) -> Dict[str, str]:
+        bid = Decimal(price["bid"])
+        ask = Decimal(price["ask"])
 
-            mid = (bid + ask) / Decimal("2")
-            spread = ask - bid
+        mid = (bid + ask) / Decimal("2")
+        spread = ask - bid
 
-            return {
-                "mid": format(mid, "f"),
-                "spread": format(spread, "f")
-            }
+        return {
+            "mid": format(mid, "f"),
+            "spread": format(spread, "f")
+        }

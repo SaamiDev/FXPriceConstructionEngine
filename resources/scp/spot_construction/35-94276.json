@@ -36,7 +36,9 @@
       "midSpread": {
         "mid": "18.72430",
         "spread": "0.00638"
-      }
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": null
     },
     {
       "amt": 5000000,
@@ -57,7 +59,9 @@
       "midSpread": {
         "mid": "18.72442",
         "spread": "0.00700"
-      }
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": null
     },
     {
       "amt": 10000000,
@@ -78,7 +82,9 @@
       "midSpread": {
         "mid": "18.724575",
         "spread": "0.01325"
-      }
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": null
     },
     {
       "amt": 20000000,
@@ -99,7 +105,9 @@
       "midSpread": {
         "mid": "18.724675",
         "spread": "0.01453"
-      }
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": null
     },
     {
       "amt": 50000000,
@@ -120,7 +128,9 @@
       "midSpread": {
         "mid": "18.72473",
         "spread": "0.02808"
-      }
+      },
+      "volatilityScenario": "Normal",
+      "rungModifier": null
     }
   ]
 }
