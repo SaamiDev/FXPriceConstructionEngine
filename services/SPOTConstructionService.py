@@ -42,13 +42,7 @@ class SPOTConstructionService:
         output_path = os.path.join(output_dir, f"{scp_id}.json")
 
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(
-                self.build(),
-                f,
-                indent=2,
-                ensure_ascii=False,
-                default=str
-            )
+            json.dump(self.build(), f, indent=2, ensure_ascii=False, default=str)
 
         return output_path
 
@@ -113,6 +107,22 @@ class SPOTConstructionService:
             volatility_scenario = self._extract_volatility_scenario()
             rm_info = self._extract_rung_modifier(amt)
 
+            price_after_rm = self._apply_rung_modifier_price(
+                mid_spread,
+                rm_info.get("RMType"),
+                rm_info.get("RMValue")
+            )
+
+            effective_min_spread = self._calculate_effective_min_spread(
+                adjustment,
+                rm_info.get("RMMin")
+            )
+
+            price_after_min_spread = self._apply_min_spread(
+                price_after_rm,
+                effective_min_spread
+            )
+
             result.append({
                 "amt": amt,
                 "core": core,
@@ -120,20 +130,20 @@ class SPOTConstructionService:
                 "priceAdjustment": price_adjustment,
                 "midSpread": mid_spread,
                 "volatilityScenario": volatility_scenario,
-                "rungModifier": rm_info["rungModifier"],
-                "RMValue": rm_info["RMValue"]
+                "rungModifier": rm_info.get("rungModifier"),
+                "RMValue": rm_info.get("RMValue"),
+                "priceAfterRungModifier": price_after_rm,
+                "minSpread": effective_min_spread,
+                "priceAfterMinSpread": price_after_min_spread
             })
 
         return result
 
-    def _apply_adjustment(
-        self,
-        core: Dict[str, str],
-        adjustment: Dict[str, Any] | None
-    ) -> Dict[str, str]:
-        """
-        Price Adjustment = Spot Core + Adjustment (TOM)
-        """
+    # =========================
+    # PRICE ADJUSTMENT (TOM)
+    # =========================
+
+    def _apply_adjustment(self, core: Dict[str, str], adjustment: Dict[str, Any] | None) -> Dict[str, str]:
         bid = Decimal(core["bid"])
         ask = Decimal(core["ask"])
 
@@ -141,30 +151,19 @@ class SPOTConstructionService:
             bid += Decimal(adjustment.get("bidSpread", "0"))
             ask += Decimal(adjustment.get("askSpread", "0"))
 
-        return {
-            "bid": format(bid, "f"),
-            "ask": format(ask, "f")
-        }
+        return {"bid": format(bid, "f"), "ask": format(ask, "f")}
 
     # =========================
     # CORE (CRL)
     # =========================
 
     def _extract_core_rungs(self) -> List[Dict[str, Any]]:
-        """
-        Core price SIEMPRE viene de CRL
-        """
         rungs_data = []
-
         crl = self.scp.get("crl")
         if not crl:
             return rungs_data
 
-        rungs = crl.get("rungs", [])
-        if not rungs:
-            return rungs_data
-
-        for rung in rungs:
+        for rung in crl.get("rungs", []):
             try:
                 rungs_data.append({
                     "amt": int(rung["amt"]),
@@ -183,112 +182,109 @@ class SPOTConstructionService:
     # =========================
 
     def _index_tom_rungs(self) -> Dict[int, Dict[str, Any]]:
-        """
-        Devuelve un dict: { amt: tom_rung }
-        """
         tom = self.scp.get("tom")
         if not tom:
             return {}
 
-        tom_rungs = tom.get("rungs", [])
         index = {}
-
-        for rung in tom_rungs:
+        for rung in tom.get("rungs", []):
             try:
                 index[int(rung["amt"])] = rung
             except Exception:
                 continue
-
         return index
 
     def _extract_volatility_scenario(self) -> str:
-        """
-        Volatility scenario según tom.mktMode:
-        N -> Normal
-        A -> Active
-        B -> Busy
-        F -> Fast
-        """
-        tom = self.scp.get("tom", {})
-        mkt_mode = tom.get("mktMode", "N")
-
         return {
             "N": "Normal",
             "A": "Active",
             "B": "Busy",
             "F": "Fast"
-        }.get(mkt_mode, "Normal")
+        }.get(self.scp.get("tom", {}).get("mktMode", "N"), "Normal")
 
     # =========================
     # RUNG MODIFIER
     # =========================
 
     def _get_active_rung_position(self, amt: int) -> int:
-        """
-        Devuelve la posición (1-based) del rung activo según CRL
-        """
-        crl = self.scp.get("crl", {})
-        rungs = crl.get("rungs", [])
-
-        for idx, r in enumerate(rungs, start=1):
+        for idx, r in enumerate(self.scp.get("crl", {}).get("rungs", []), start=1):
             if int(r.get("amt")) == amt:
                 return idx
-
         return 1
 
     def _extract_rung_modifier(self, amt: int) -> Dict[str, str | None]:
-        """
-        Devuelve:
-        {
-          "rungModifier": "greenRM_B_FA (Rung 1 MULTIPLY 3)",
-          "RMValue": "3"
-        }
-        """
         tmu = self.scp.get("tmu", {})
-        tom = self.scp.get("tom", {})
+        scenario = self.scp.get("tom", {}).get("mktMode", "N")
+        rms = tmu.get("rungmodifiers", {}).get(scenario)
 
-        package = tmu.get("package")
-        if not package:
-            return {"rungModifier": None, "RMValue": None}
+        if not tmu.get("package") or not rms:
+            return {"rungModifier": None, "RMValue": None, "RMType": None, "RMMin": None}
 
-        scenario = tom.get("mktMode", "N")
-        rung_modifiers = tmu.get("rungmodifiers", {}).get(scenario)
+        rung_pos = self._get_active_rung_position(amt)
 
-        if not rung_modifiers:
-            return {"rungModifier": None, "RMValue": None}
-
-        rung_position = self._get_active_rung_position(amt)
-
-        for rm in rung_modifiers:
-            if rm.get("rung") == rung_position:
-                rm_type = rm.get("type")
-                rm_value = rm.get("value")
-
+        for rm in rms:
+            if rm.get("rung") == rung_pos:
                 return {
-                    "rungModifier": (
-                        f"{package}_{scenario}_FA "
-                        f"(Rung {rung_position} {rm_type} {rm_value})"
-                    ),
-                    "RMValue": str(rm_value)
+                    "rungModifier": f"{tmu.get('package')}_{scenario}_FA "
+                                    f"(Rung {rung_pos} {rm.get('type')} {rm.get('value')})",
+                    "RMValue": str(rm.get("value")),
+                    "RMType": rm.get("type"),
+                    "RMMin": str(rm.get("min")) if rm.get("min") not in (None, 0, "0") else None
                 }
 
-        return {"rungModifier": None, "RMValue": None}
+        return {"rungModifier": None, "RMValue": None, "RMType": None, "RMMin": None}
+
+    # =========================
+    # PRICE AFTER RUNG MODIFIER
+    # =========================
+
+    def _apply_rung_modifier_price(self, mid_spread, rm_type, rm_value):
+        if not mid_spread or not rm_type or not rm_value:
+            return None
+
+        mid = Decimal(mid_spread["mid"])
+        spread = Decimal(mid_spread["spread"])
+        rm_val = Decimal(rm_value)
+
+        adjusted = spread + rm_val if rm_type == "ADDITIVE" else spread * rm_val
+        return {
+            "bid": format(mid - adjusted / 2, "f"),
+            "ask": format(mid + adjusted / 2, "f")
+        }
+
+    # =========================
+    # MIN SPREAD
+    # =========================
+
+    def _calculate_effective_min_spread(self, tom_adj, rm_min):
+        tom_min = Decimal(tom_adj.get("minSpread")) if tom_adj and tom_adj.get("minSpread") else Decimal("0")
+        rm_min_val = Decimal(rm_min) if rm_min else Decimal("0")
+        eff = max(tom_min, rm_min_val)
+        return format(eff, "f") if eff > 0 else None
+
+    def _apply_min_spread(self, price_after_rm, min_spread):
+        if not price_after_rm or not min_spread:
+            return price_after_rm
+
+        bid = Decimal(price_after_rm["bid"])
+        ask = Decimal(price_after_rm["ask"])
+        min_sp = Decimal(min_spread)
+
+        if ask - bid >= min_sp:
+            return price_after_rm
+
+        mid = (bid + ask) / 2
+        return {
+            "bid": format(mid - min_sp / 2, "f"),
+            "ask": format(mid + min_sp / 2, "f")
+        }
 
     # =========================
     # MID / SPREAD
     # =========================
 
-    def _calculate_mid_and_spread(
-        self,
-        price: Dict[str, str]
-    ) -> Dict[str, str]:
+    def _calculate_mid_and_spread(self, price):
         bid = Decimal(price["bid"])
         ask = Decimal(price["ask"])
-
-        mid = (bid + ask) / Decimal("2")
-        spread = ask - bid
-
-        return {
-            "mid": format(mid, "f"),
-            "spread": format(spread, "f")
-        }
+        mid = (bid + ask) / 2
+        return {"mid": format(mid, "f"), "spread": format(ask - bid, "f")}

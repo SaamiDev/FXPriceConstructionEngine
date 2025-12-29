@@ -189,7 +189,7 @@ class SpotConstructionScreen(tk.Frame):
             active = r.get("amt") == active_amt
 
             card = tk.Frame(
-                table, bg=BG_CARD, width=560, height=320,
+                table, bg=BG_CARD, width=560, height=380,
                 highlightbackground=ACTIVE_BORDER if active else BORDER,
                 highlightthickness=2 if active else 1
             )
@@ -237,61 +237,26 @@ class SpotConstructionScreen(tk.Frame):
             self._single_row(grid, row, "MID:", mid, TEXT_PRIMARY); row += 1
             self._single_row(grid, row, "SPREAD:", spread, TEXT_SECONDARY); row += 1
 
-            # VOLATILITY SCENARY → IZQUIERDA
-            tk.Label(
-                grid,
-                text="MKT MODE:",
-                font=FONT_NORMAL,
-                fg=TEXT_SECONDARY,
-                bg=BG_CARD
-            ).grid(row=row, column=0, sticky="w")
+            # ===== NUEVOS CAMPOS =====
 
-            tk.Label(
-                grid,
-                text=r.get("volatilityScenario") or "-",
-                font=FONT_BOLD,
-                fg=TEXT_PRIMARY,
-                bg=BG_CARD
-            ).grid(row=row, column=0, padx=(110, 0), sticky="w")
+            pr_rm = r.get("priceAfterRungModifier", {})
+            self._price_row(
+                grid, row, "PRICE AFTER RM:",
+                pr_rm.get("bid", "-"),
+                pr_rm.get("ask", "-")
+            ); row += 1
 
-            row += 1
+            self._single_row(
+                grid, row, "MIN SPREAD:",
+                r.get("minSpread"), TEXT_PRIMARY
+            ); row += 1
 
-            # RUNG MODIFIERS → IZQUIERDA
-            tk.Label(
-                grid,
-                text="RUNG MODIFIERS:",
-                font=FONT_NORMAL,
-                fg=TEXT_SECONDARY,
-                bg=BG_CARD
-            ).grid(row=row, column=0, sticky="w")
-
-            tk.Label(
-                grid,
-                text=r.get("rungModifier") or "-",
-                font=FONT_BOLD,
-                fg=TEXT_PRIMARY,
-                bg=BG_CARD,
-                wraplength=300,
-                justify="left"
-            ).grid(row=row, column=0, padx=(110, 0), sticky="w")
-
-            row += 1
-
-            # RM VALUE alineado con ASK
-            tk.Label(
-                grid, text="RM VALUE:",
-                font=FONT_NORMAL,
-                fg=TEXT_SECONDARY,
-                bg=BG_CARD
-            ).grid(row=row, column=0, sticky="w")
-
-            tk.Label(
-                grid,
-                text=r.get("RMValue") or "-",
-                font=FONT_BOLD,
-                fg=TEXT_PRIMARY,
-                bg=BG_CARD
-            ).grid(row=row, column=2)
+            pr_ms = r.get("priceAfterMinSpread", {})
+            self._price_row(
+                grid, row, "PRICE AFTER MIN SPREAD:",
+                pr_ms.get("bid", "-"),
+                pr_ms.get("ask", "-")
+            )
 
     # =========================================================
     # HELPERS
