@@ -40,6 +40,8 @@
       "volatilityScenario": "Normal",
       "rungModifier": "greenVol_R_Inditex_N_FA (Rung 1 MULTIPLY 0.76)",
       "RMValue": "0.76",
+      "RMType": "MULTIPLY",
+      "RMMin": "0.00004",
       "priceAfterRungModifier": {
         "bid": "0.8017772",
         "ask": "0.8018228"
@@ -73,6 +75,8 @@
       "volatilityScenario": "Normal",
       "rungModifier": "greenVol_R_Inditex_N_FA (Rung 2 MULTIPLY 0.54)",
       "RMValue": "0.54",
+      "RMType": "MULTIPLY",
+      "RMMin": "0.00006",
       "priceAfterRungModifier": {
         "bid": "0.8017730",
         "ask": "0.8018270"
@@ -106,6 +110,8 @@
       "volatilityScenario": "Normal",
       "rungModifier": "greenVol_R_Inditex_N_FA (Rung 3 MULTIPLY 0.78)",
       "RMValue": "0.78",
+      "RMType": "MULTIPLY",
+      "RMMin": "0.00009",
       "priceAfterRungModifier": {
         "bid": "0.8017532",
         "ask": "0.8018468"
@@ -139,6 +145,8 @@
       "volatilityScenario": "Normal",
       "rungModifier": "greenVol_R_Inditex_N_FA (Rung 4 MULTIPLY 0.81)",
       "RMValue": "0.81",
+      "RMType": "MULTIPLY",
+      "RMMin": "0.00012",
       "priceAfterRungModifier": {
         "bid": "0.80173615",
         "ask": "0.80187385"

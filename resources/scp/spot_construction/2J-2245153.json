@@ -38,7 +38,11 @@
         "spread": "0.0048"
       },
       "volatilityScenario": "Normal",
-      "rungModifier": null
+      "rungModifier": null,
+      "RMValue": null,
+      "priceAfterRungModifier": null,
+      "minSpread": null,
+      "priceAfterMinSpread": null
     }
   ]
 }

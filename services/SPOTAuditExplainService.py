@@ -66,23 +66,23 @@ class SpotAuditExplainService:
 
     def _tom_adjustment_section(self) -> str:
         adj = self.rung.get("adjustment")
-        pa = self.rung.get("priceAdjustment", {})
+        pa = self.rung.get("priceAdjustment") or {}
         core = self.rung.get("core", {})
 
-        if not adj:
+        if not adj or not pa:
             return (
                 "TOM ADJUSTMENT\n"
                 "--------------\n"
                 "No existen ajustes TOM configurados para este rung."
             )
 
-        bid_core = Decimal(core.get("bid"))
-        ask_core = Decimal(core.get("ask"))
-        bid_spread = Decimal(str(adj.get("bidSpread", "0")))
-        ask_spread = Decimal(str(adj.get("askSpread", "0")))
+        bid_core = self._safe_decimal(core.get("bid"))
+        ask_core = self._safe_decimal(core.get("ask"))
+        bid_spread = self._safe_decimal(adj.get("bidSpread"))
+        ask_spread = self._safe_decimal(adj.get("askSpread"))
 
-        bid_adj = Decimal(pa.get("bid"))
-        ask_adj = Decimal(pa.get("ask"))
+        bid_adj = self._safe_decimal(pa.get("bid"))
+        ask_adj = self._safe_decimal(pa.get("ask"))
 
         return (
             "TOM ADJUSTMENT\n"
@@ -97,36 +97,53 @@ class SpotAuditExplainService:
         )
 
     def _mid_spread_section(self) -> str:
-        ms = self.rung.get("midSpread", {})
-        bid = Decimal(self.rung["priceAdjustment"]["bid"])
-        ask = Decimal(self.rung["priceAdjustment"]["ask"])
+        pa = self.rung.get("priceAdjustment") or {}
+        ms = self.rung.get("midSpread") or {}
+
+        if not pa or not ms:
+            return None
+
+        bid = self._safe_decimal(pa.get("bid"))
+        ask = self._safe_decimal(pa.get("ask"))
+        mid = ms.get("mid")
+        spread = ms.get("spread")
 
         return (
             "MID / SPREAD\n"
             "------------\n"
             "Cálculo del Mid y Spread a partir del precio ajustado:\n"
-            f"Mid = (Bid_adj + Ask_adj) / 2\n"
+            "Mid = (Bid_adj + Ask_adj) / 2\n"
             f"    = ({bid} + {ask}) / 2\n"
-            f"    = {ms.get('mid')}\n\n"
-            f"Spread = Ask_adj - Bid_adj\n"
+            f"    = {mid}\n\n"
+            "Spread = Ask_adj - Bid_adj\n"
             f"       = {ask} - {bid}\n"
-            f"       = {ms.get('spread')}"
+            f"       = {spread}"
         )
 
     def _rung_modifier_section(self) -> str:
         rm = self.rung.get("rungModifier")
-        rm_value = Decimal(str(self.rung.get("RMValue", "0")))
+        rm_value = self._safe_decimal(self.rung.get("RMValue"))
         pa_rm = self.rung.get("priceAfterRungModifier")
-        ms = self.rung.get("midSpread", {})
+        ms = self.rung.get("midSpread") or {}
 
-        if not rm or not pa_rm:
+        if not rm:
             return (
                 "RUNG MODIFIER\n"
                 "-------------\n"
-                "No existe ningún Rung Modifier activo para este escenario."
+                "No existe ningún Rung Modifier configurado para este rung."
             )
 
-        spread = Decimal(str(ms.get("spread")))
+        if not isinstance(pa_rm, dict):
+            return (
+                "RUNG MODIFIER\n"
+                "-------------\n"
+                f"Rung Modifier configurado:\n{rm}\n"
+                f"Valor configurado = {rm_value}\n\n"
+                "El modificador no se ha aplicado al precio final.\n"
+                "Motivo: el escenario, el tamaño o las condiciones no activan su uso."
+            )
+
+        spread = self._safe_decimal(ms.get("spread"))
         spread_rm = spread * rm_value
 
         return (
@@ -136,7 +153,7 @@ class SpotAuditExplainService:
             f"Valor aplicado = {rm_value}\n\n"
             "Tipo de modificador: MULTIPLY\n"
             "El spread se ajusta multiplicándolo por el factor configurado:\n\n"
-            f"Spread_RM = Spread * RMValue\n"
+            "Spread_RM = Spread * RMValue\n"
             f"          = {spread} * {rm_value}\n"
             f"          = {spread_rm}\n\n"
             "El precio se recalcula de forma simétrica alrededor del Mid:\n"
@@ -151,24 +168,24 @@ class SpotAuditExplainService:
         min_spread = self.rung.get("minSpread")
         pa_rm = self.rung.get("priceAfterRungModifier")
 
-        if not min_spread or not pa_rm:
+        if not min_spread or not isinstance(pa_rm, dict):
             return None
 
-        bid_rm = Decimal(pa_rm["bid"])
-        ask_rm = Decimal(pa_rm["ask"])
+        bid_rm = self._safe_decimal(pa_rm.get("bid"))
+        ask_rm = self._safe_decimal(pa_rm.get("ask"))
         spread_rm = ask_rm - bid_rm
-        min_spread_d = Decimal(str(min_spread))
+        min_spread_d = self._safe_decimal(min_spread)
 
         if spread_rm < min_spread_d:
-            pa_ms = self.rung.get("priceAfterMinSpread")
+            pa_ms = self.rung.get("priceAfterMinSpread") or {}
             return (
                 "MIN SPREAD\n"
                 "----------\n"
                 f"Spread_RM = Ask_RM - Bid_RM = {spread_rm}\n"
                 f"MinSpread configurado = {min_spread_d}\n\n"
-                "Dado que Spread_RM < MinSpread, se recalcula el precio alrededor del Mid:\n"
-                f"- Bid_final = {pa_ms.get('bid')}\n"
-                f"- Ask_final = {pa_ms.get('ask')}"
+                "Dado que Spread_RM < MinSpread, se fuerza el spread mínimo:\n"
+                f"Bid_final = {pa_ms.get('bid')}\n"
+                f"Ask_final = {pa_ms.get('ask')}"
             )
 
         return (
@@ -185,6 +202,7 @@ class SpotAuditExplainService:
             self.rung.get("priceAfterMinSpread")
             or self.rung.get("priceAfterRungModifier")
             or self.rung.get("priceAdjustment")
+            or {}
         )
 
         return (
@@ -205,3 +223,12 @@ class SpotAuditExplainService:
             return f"{int(value):,}".replace(",", ".")
         except Exception:
             return str(value)
+
+    @staticmethod
+    def _safe_decimal(value, default="0") -> Decimal:
+        try:
+            if value is None:
+                return Decimal(default)
+            return Decimal(str(value))
+        except Exception:
+            return Decimal(default)

@@ -2,7 +2,7 @@ import os
 import json
 from decimal import Decimal
 from typing import Dict, Any, List
-import tkinter as tk
+
 
 class SPOTConstructionService:
 
@@ -42,7 +42,7 @@ class SPOTConstructionService:
         output_path = os.path.join(output_dir, f"{scp_id}.json")
 
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(self.build(), f, indent=2, ensure_ascii=False, default=str)
+            json.dump(self.build(), f, indent=2, ensure_ascii=False)
 
         return output_path
 
@@ -95,29 +95,36 @@ class SPOTConstructionService:
             adjustment = None
             if tom:
                 adjustment = {
-                    "bidSpread": str(tom.get("bidSpread")),
-                    "askSpread": str(tom.get("askSpread")),
-                    "minSpread": str(tom.get("minSpread")),
+                    "bidSpread": str(tom.get("bidSpread", "0")),
+                    "askSpread": str(tom.get("askSpread", "0")),
+                    "minSpread": str(tom.get("minSpread", "0")),
                     "source": "TOM"
                 }
 
+            # --- PRICE ADJ (CRL + TOM)
             price_adjustment = self._apply_adjustment(core, adjustment)
+
+            # --- MID / SPREAD
             mid_spread = self._calculate_mid_and_spread(price_adjustment)
 
-            volatility_scenario = self._extract_volatility_scenario()
+            # --- RUNG MODIFIER METADATA
             rm_info = self._extract_rung_modifier(amt)
 
+            # --- PRICE AFTER RM (HEREDA SI NO HAY RM)
             price_after_rm = self._apply_rung_modifier_price(
                 mid_spread,
-                rm_info.get("RMType"),
-                rm_info.get("RMValue")
+                rm_info["RMType"],
+                rm_info["RMValue"],
+                fallback_price=price_adjustment
             )
 
+            # --- MIN SPREAD EFECTIVO
             effective_min_spread = self._calculate_effective_min_spread(
                 adjustment,
-                rm_info.get("RMMin")
+                rm_info["RMMin"]
             )
 
+            # --- PRICE AFTER MIN SPREAD (HEREDA SI NO SE FUERZA)
             price_after_min_spread = self._apply_min_spread(
                 price_after_rm,
                 effective_min_spread
@@ -129,9 +136,15 @@ class SPOTConstructionService:
                 "adjustment": adjustment,
                 "priceAdjustment": price_adjustment,
                 "midSpread": mid_spread,
-                "volatilityScenario": volatility_scenario,
-                "rungModifier": rm_info.get("rungModifier"),
-                "RMValue": rm_info.get("RMValue"),
+                "volatilityScenario": self._extract_volatility_scenario(),
+
+                # 🔽 RUNG MODIFIER (SIEMPRE PRESENTE)
+                "rungModifier": rm_info["rungModifier"],
+                "RMValue": rm_info["RMValue"],
+                "RMType": rm_info["RMType"],
+                "RMMin": rm_info["RMMin"],
+
+                # 🔽 PRICES (SIEMPRE EXISTEN)
                 "priceAfterRungModifier": price_after_rm,
                 "minSpread": effective_min_spread,
                 "priceAfterMinSpread": price_after_min_spread
@@ -212,44 +225,61 @@ class SPOTConstructionService:
                 return idx
         return 1
 
-    def _extract_rung_modifier(self, amt: int) -> Dict[str, str | None]:
+    def _extract_rung_modifier(self, amt: int) -> Dict[str, Any]:
         tmu = self.scp.get("tmu", {})
         scenario = self.scp.get("tom", {}).get("mktMode", "N")
         rms = tmu.get("rungmodifiers", {}).get(scenario)
 
         if not tmu.get("package") or not rms:
-            return {"rungModifier": None, "RMValue": None, "RMType": None, "RMMin": None}
+            return {
+                "rungModifier": None,
+                "RMValue": None,
+                "RMType": None,
+                "RMMin": None
+            }
 
         rung_pos = self._get_active_rung_position(amt)
 
         for rm in rms:
             if rm.get("rung") == rung_pos:
                 return {
-                    "rungModifier": f"{tmu.get('package')}_{scenario}_FA "
-                                    f"(Rung {rung_pos} {rm.get('type')} {rm.get('value')})",
+                    "rungModifier": (
+                        f"{tmu.get('package')}_{scenario}_FA "
+                        f"(Rung {rung_pos} {rm.get('type')} {rm.get('value')})"
+                    ),
                     "RMValue": str(rm.get("value")),
                     "RMType": rm.get("type"),
                     "RMMin": str(rm.get("min")) if rm.get("min") not in (None, 0, "0") else None
                 }
 
-        return {"rungModifier": None, "RMValue": None, "RMType": None, "RMMin": None}
+        return {
+            "rungModifier": None,
+            "RMValue": None,
+            "RMType": None,
+            "RMMin": None
+        }
 
     # =========================
     # PRICE AFTER RUNG MODIFIER
     # =========================
 
-    def _apply_rung_modifier_price(self, mid_spread, rm_type, rm_value):
-        if not mid_spread or not rm_type or not rm_value:
-            return None
+    def _apply_rung_modifier_price(self, mid_spread, rm_type, rm_value, fallback_price):
+        # ⬅️ NO RM → HEREDA PRECIO
+        if not rm_type or not rm_value:
+            return fallback_price
 
         mid = Decimal(mid_spread["mid"])
         spread = Decimal(mid_spread["spread"])
         rm_val = Decimal(rm_value)
 
-        adjusted = spread + rm_val if rm_type == "ADDITIVE" else spread * rm_val
+        adjusted_spread = (
+            spread + rm_val if rm_type == "ADDITIVE"
+            else spread * rm_val
+        )
+
         return {
-            "bid": format(mid - adjusted / 2, "f"),
-            "ask": format(mid + adjusted / 2, "f")
+            "bid": format(mid - adjusted_spread / 2, "f"),
+            "ask": format(mid + adjusted_spread / 2, "f")
         }
 
     # =========================
@@ -262,16 +292,16 @@ class SPOTConstructionService:
         eff = max(tom_min, rm_min_val)
         return format(eff, "f") if eff > 0 else None
 
-    def _apply_min_spread(self, price_after_rm, min_spread):
-        if not price_after_rm or not min_spread:
-            return price_after_rm
+    def _apply_min_spread(self, price, min_spread):
+        if not min_spread:
+            return price
 
-        bid = Decimal(price_after_rm["bid"])
-        ask = Decimal(price_after_rm["ask"])
+        bid = Decimal(price["bid"])
+        ask = Decimal(price["ask"])
         min_sp = Decimal(min_spread)
 
         if ask - bid >= min_sp:
-            return price_after_rm
+            return price
 
         mid = (bid + ask) / 2
         return {
@@ -279,29 +309,6 @@ class SPOTConstructionService:
             "ask": format(mid + min_sp / 2, "f")
         }
 
-
-    def _insert_explain_with_colors(self, text_widget: tk.Text, explanation: str):
-        """
-        Inserta el texto de auditoría aplicando colores:
-        - Bid → verde
-        - Ask → rojo
-        - Títulos → secondary
-        """
-        for line in explanation.split("\n"):
-            tag = "normal"
-
-            # Títulos de sección
-            if line.isupper() and "-" in line:
-                tag = "title"
-
-            # Bid / Ask (auditoría numérica)
-            elif "Bid" in line:
-                tag = "bid"
-
-            elif "Ask" in line:
-                tag = "ask"
-
-            text_widget.insert("end", line + "\n", tag)
     # =========================
     # MID / SPREAD
     # =========================
@@ -310,4 +317,7 @@ class SPOTConstructionService:
         bid = Decimal(price["bid"])
         ask = Decimal(price["ask"])
         mid = (bid + ask) / 2
-        return {"mid": format(mid, "f"), "spread": format(ask - bid, "f")}
+        return {
+            "mid": format(mid, "f"),
+            "spread": format(ask - bid, "f")
+        }
