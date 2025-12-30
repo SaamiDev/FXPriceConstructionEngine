@@ -12,6 +12,9 @@ from UI.styles.desk_theme import (
     ACCENT_LINK
 )
 
+# 👇 Builder de auditoría
+from services.SPOTAuditExplainService import SpotAuditExplainService
+
 ACTIVE_BORDER = "#F59E0B"
 
 
@@ -20,6 +23,7 @@ class SpotConstructionScreen(tk.Frame):
     def __init__(self, master, controller=None):
         super().__init__(master, bg=BG_MAIN)
         self.controller = controller
+        self._spot_data = None  # JSON completo para Explain
         self.pack(fill="both", expand=True)
         self._build_ui()
 
@@ -65,7 +69,6 @@ class SpotConstructionScreen(tk.Frame):
             "<Configure>",
             lambda e: self.canvas.itemconfig(self.window_id, width=e.width)
         )
-
         self.content.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -96,6 +99,8 @@ class SpotConstructionScreen(tk.Frame):
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
+        self._spot_data = data
+
         active_amt = None
         notional_raw = data.get("notional", {}).get("amount")
 
@@ -116,8 +121,6 @@ class SpotConstructionScreen(tk.Frame):
             data.get("context", {}).get("ccyPair"),
             active_amt
         )
-
-        self.update_idletasks()
 
     # =========================================================
     # CONTEXT CARD
@@ -189,7 +192,7 @@ class SpotConstructionScreen(tk.Frame):
             active = r.get("amt") == active_amt
 
             card = tk.Frame(
-                table, bg=BG_CARD, width=560, height=380,
+                table, bg=BG_CARD, width=560, height=420,
                 highlightbackground=ACTIVE_BORDER if active else BORDER,
                 highlightthickness=2 if active else 1
             )
@@ -199,6 +202,31 @@ class SpotConstructionScreen(tk.Frame):
             inner = tk.Frame(card, bg=BG_CARD)
             inner.pack(fill="both", expand=True, padx=24, pady=20)
 
+            header = tk.Frame(inner, bg=BG_CARD)
+            header.pack(fill="x", pady=(0, 10))
+
+            tk.Label(
+                header,
+                text=f"RUNG {r['amt']}",
+                font=FONT_BOLD,
+                fg=TEXT_PRIMARY,
+                bg=BG_CARD
+            ).pack(side="left")
+
+            explain_btn = tk.Label(
+                header,
+                text="Explain",
+                font=FONT_BOLD,
+                fg=ACCENT_LINK,
+                bg=BG_CARD,
+                cursor="hand2"
+            )
+            explain_btn.pack(side="right")
+            explain_btn.bind(
+                "<Button-1>",
+                lambda e, rung=r: self.open_explain_modal(rung)
+            )
+
             grid = tk.Frame(inner, bg=BG_CARD)
             grid.pack(fill="both", expand=True)
 
@@ -207,7 +235,6 @@ class SpotConstructionScreen(tk.Frame):
             grid.columnconfigure(2, minsize=130)
 
             row = 0
-
             tk.Label(grid, text="BID", font=FONT_BOLD,
                      fg="#10B981", bg=BG_CARD).grid(row=row, column=1)
             tk.Label(grid, text="ASK", font=FONT_BOLD,
@@ -215,48 +242,74 @@ class SpotConstructionScreen(tk.Frame):
             row += 1
 
             self._meta_row(grid, row, "CCY PAIR:", ccy_pair); row += 1
-            self._meta_row(grid, row, "AMOUNT:",
-                           f"{int(r['amt']):,}".replace(",", ".")); row += 1
-
-            self._price_row(grid, row, "SPOT CORE:",
-                            r["core"]["bid"], r["core"]["ask"]); row += 1
-
+            self._meta_row(grid, row, "AMOUNT:", f"{int(r['amt']):,}".replace(",", ".")); row += 1
+            self._price_row(grid, row, "SPOT CORE:", r["core"]["bid"], r["core"]["ask"]); row += 1
             adj = r.get("adjustment", {})
-            self._price_row(grid, row, "ADJUSTMENT:",
-                            adj.get("bidSpread", "-"),
-                            adj.get("askSpread", "-")); row += 1
-
+            self._price_row(grid, row, "ADJUSTMENT:", adj.get("bidSpread", "-"), adj.get("askSpread", "-")); row += 1
             pa = r.get("priceAdjustment", {})
-            self._price_row(grid, row, "PRICE ADJ:",
-                            pa.get("bid", "-"),
-                            pa.get("ask", "-")); row += 1
-
-            mid = r.get("midSpread", {}).get("mid")
-            spread = r.get("midSpread", {}).get("spread")
-
-            self._single_row(grid, row, "MID:", mid, TEXT_PRIMARY); row += 1
-            self._single_row(grid, row, "SPREAD:", spread, TEXT_SECONDARY); row += 1
-
-            # ===== NUEVOS CAMPOS =====
-
+            self._price_row(grid, row, "PRICE ADJ:", pa.get("bid", "-"), pa.get("ask", "-")); row += 1
+            ms = r.get("midSpread", {})
+            self._single_row(grid, row, "MID:", ms.get("mid"), TEXT_PRIMARY); row += 1
+            self._single_row(grid, row, "SPREAD:", ms.get("spread"), TEXT_SECONDARY); row += 1
             pr_rm = r.get("priceAfterRungModifier", {})
-            self._price_row(
-                grid, row, "PRICE AFTER RM:",
-                pr_rm.get("bid", "-"),
-                pr_rm.get("ask", "-")
-            ); row += 1
-
-            self._single_row(
-                grid, row, "MIN SPREAD:",
-                r.get("minSpread"), TEXT_PRIMARY
-            ); row += 1
-
+            self._price_row(grid, row, "PRICE AFTER RM:", pr_rm.get("bid", "-"), pr_rm.get("ask", "-")); row += 1
+            self._single_row(grid, row, "MIN SPREAD:", r.get("minSpread"), TEXT_PRIMARY); row += 1
             pr_ms = r.get("priceAfterMinSpread", {})
-            self._price_row(
-                grid, row, "PRICE AFTER MIN SPREAD:",
-                pr_ms.get("bid", "-"),
-                pr_ms.get("ask", "-")
-            )
+            self._price_row(grid, row, "PRICE AFTER MIN SPREAD:", pr_ms.get("bid", "-"), pr_ms.get("ask", "-"))
+
+    # =========================================================
+    # EXPLAIN MODAL (AUDITORÍA)
+    # =========================================================
+
+    def open_explain_modal(self, rung_data: dict):
+        modal = tk.Toplevel(self)
+        modal.title("Spot Pricing – Audit Trail")
+        modal.configure(bg=BG_MAIN)
+        modal.geometry("700x580")
+        modal.transient(self)
+        modal.grab_set()
+
+        container = tk.Frame(modal, bg=BG_CARD,
+                              highlightbackground=BORDER,
+                              highlightthickness=1)
+        container.pack(fill="both", expand=True, padx=24, pady=24)
+
+        tk.Label(
+            container,
+            text="Spot Price Construction – Audit Explanation",
+            font=FONT_BOLD,
+            fg=TEXT_PRIMARY,
+            bg=BG_CARD
+        ).pack(anchor="w", pady=(0, 16))
+
+        text = tk.Text(container, bg=BG_CARD, fg=TEXT_PRIMARY,
+                       font=("Menlo", 12), wrap="word", relief="flat")
+        text.pack(fill="both", expand=True)
+
+        text.tag_configure("title", font=("Menlo", 13, "bold"), foreground=TEXT_SECONDARY)
+        text.tag_configure("bid", foreground="#10B981", font=("Menlo", 12, "bold"))
+        text.tag_configure("ask", foreground="#EF4444", font=("Menlo", 12, "bold"))
+        text.tag_configure("normal", foreground=TEXT_PRIMARY)
+
+        explanation = SpotAuditExplainService(
+            context=self._spot_data.get("context", {}),
+            notional=self._spot_data.get("notional", {}),
+            rung=rung_data
+        ).build()
+
+        self._insert_explain_with_colors(text, explanation)
+        text.config(state="disabled")
+
+    def _insert_explain_with_colors(self, text_widget: tk.Text, content: str):
+        for line in content.split("\n"):
+            if line.isupper() or line.startswith(("CONTEXT", "RUNG", "SPOT", "TOM", "MID", "MIN", "FINAL")):
+                text_widget.insert("end", line + "\n", "title")
+            elif "Bid =" in line or "Final Bid" in line:
+                text_widget.insert("end", line + "\n", "bid")
+            elif "Ask =" in line or "Final Ask" in line:
+                text_widget.insert("end", line + "\n", "ask")
+            else:
+                text_widget.insert("end", line + "\n", "normal")
 
     # =========================================================
     # HELPERS
@@ -266,9 +319,7 @@ class SpotConstructionScreen(tk.Frame):
         tk.Label(grid, text=label, font=FONT_NORMAL,
                  fg=TEXT_SECONDARY, bg=BG_CARD).grid(row=row, column=0, sticky="w")
         tk.Label(grid, text=value, font=FONT_BOLD,
-                 fg=TEXT_PRIMARY, bg=BG_CARD).grid(
-            row=row, column=0, padx=(110, 0), sticky="w"
-        )
+                 fg=TEXT_PRIMARY, bg=BG_CARD).grid(row=row, column=0, padx=(110, 0), sticky="w")
 
     def _price_row(self, grid, row, label, bid, ask):
         tk.Label(grid, text=label, font=FONT_NORMAL,
@@ -281,13 +332,8 @@ class SpotConstructionScreen(tk.Frame):
     def _single_row(self, grid, row, label, value, color):
         tk.Label(grid, text=label, font=FONT_NORMAL,
                  fg=TEXT_SECONDARY, bg=BG_CARD).grid(row=row, column=0, sticky="w")
-        tk.Label(
-            grid,
-            text=value if value else "-",
-            font=FONT_BOLD,
-            fg=color,
-            bg=BG_CARD
-        ).grid(row=row, column=2)
+        tk.Label(grid, text=value if value else "-",
+                 font=FONT_BOLD, fg=color, bg=BG_CARD).grid(row=row, column=2)
 
     # =========================================================
     # NAV

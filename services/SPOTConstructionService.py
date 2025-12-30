@@ -2,7 +2,7 @@ import os
 import json
 from decimal import Decimal
 from typing import Dict, Any, List
-
+import tkinter as tk
 
 class SPOTConstructionService:
 
@@ -279,6 +279,29 @@ class SPOTConstructionService:
             "ask": format(mid + min_sp / 2, "f")
         }
 
+
+    def _insert_explain_with_colors(self, text_widget: tk.Text, explanation: str):
+        """
+        Inserta el texto de auditoría aplicando colores:
+        - Bid → verde
+        - Ask → rojo
+        - Títulos → secondary
+        """
+        for line in explanation.split("\n"):
+            tag = "normal"
+
+            # Títulos de sección
+            if line.isupper() and "-" in line:
+                tag = "title"
+
+            # Bid / Ask (auditoría numérica)
+            elif "Bid" in line:
+                tag = "bid"
+
+            elif "Ask" in line:
+                tag = "ask"
+
+            text_widget.insert("end", line + "\n", tag)
     # =========================
     # MID / SPREAD
     # =========================
