@@ -38,7 +38,19 @@
         "spread": "0.00638"
       },
       "volatilityScenario": "Normal",
-      "rungModifier": null
+      "rungModifier": null,
+      "RMValue": null,
+      "RMType": null,
+      "RMMin": null,
+      "priceAfterRungModifier": {
+        "bid": "18.72111",
+        "ask": "18.72749"
+      },
+      "minSpread": "0.0",
+      "priceAfterMinSpread": {
+        "bid": "18.72111",
+        "ask": "18.72749"
+      }
     },
     {
       "amt": 5000000,
@@ -61,7 +73,19 @@
         "spread": "0.00700"
       },
       "volatilityScenario": "Normal",
-      "rungModifier": null
+      "rungModifier": null,
+      "RMValue": null,
+      "RMType": null,
+      "RMMin": null,
+      "priceAfterRungModifier": {
+        "bid": "18.72092",
+        "ask": "18.72792"
+      },
+      "minSpread": "0.015",
+      "priceAfterMinSpread": {
+        "bid": "18.71692",
+        "ask": "18.73192"
+      }
     },
     {
       "amt": 10000000,
@@ -84,7 +108,19 @@
         "spread": "0.01325"
       },
       "volatilityScenario": "Normal",
-      "rungModifier": null
+      "rungModifier": null,
+      "RMValue": null,
+      "RMType": null,
+      "RMMin": null,
+      "priceAfterRungModifier": {
+        "bid": "18.71795",
+        "ask": "18.7312"
+      },
+      "minSpread": "0.02",
+      "priceAfterMinSpread": {
+        "bid": "18.714575",
+        "ask": "18.734575"
+      }
     },
     {
       "amt": 20000000,
@@ -107,7 +143,19 @@
         "spread": "0.01453"
       },
       "volatilityScenario": "Normal",
-      "rungModifier": null
+      "rungModifier": null,
+      "RMValue": null,
+      "RMType": null,
+      "RMMin": null,
+      "priceAfterRungModifier": {
+        "bid": "18.71741",
+        "ask": "18.73194"
+      },
+      "minSpread": "0.0",
+      "priceAfterMinSpread": {
+        "bid": "18.71741",
+        "ask": "18.73194"
+      }
     },
     {
       "amt": 50000000,
@@ -130,7 +178,19 @@
         "spread": "0.02808"
       },
       "volatilityScenario": "Normal",
-      "rungModifier": null
+      "rungModifier": null,
+      "RMValue": null,
+      "RMType": null,
+      "RMMin": null,
+      "priceAfterRungModifier": {
+        "bid": "18.71069",
+        "ask": "18.73877"
+      },
+      "minSpread": "0.0",
+      "priceAfterMinSpread": {
+        "bid": "18.71069",
+        "ask": "18.73877"
+      }
     }
   ]
 }

@@ -40,9 +40,17 @@
       "volatilityScenario": "Normal",
       "rungModifier": null,
       "RMValue": null,
-      "priceAfterRungModifier": null,
-      "minSpread": null,
-      "priceAfterMinSpread": null
+      "RMType": null,
+      "RMMin": null,
+      "priceAfterRungModifier": {
+        "bid": "1.9532",
+        "ask": "1.9580"
+      },
+      "minSpread": "0",
+      "priceAfterMinSpread": {
+        "bid": "1.9532",
+        "ask": "1.9580"
+      }
     }
   ]
 }

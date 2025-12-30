@@ -1,12 +1,22 @@
 import tkinter as tk
 from UI.styles.theme import FONT_FAMILY
 
-class StyledButton(tk.Frame):
-    def __init__(self, parent, text, command=None,
-                 bg="#FF8C00", hover="#FFA733",
-                 fg="white", width=180, height=42):
 
+class StyledButton(tk.Frame):
+    def __init__(
+        self,
+        parent,
+        text,
+        command=None,
+        bg="#FF8C00",
+        hover="#FFA733",
+        fg="white",
+        width=180,
+        height=42,
+        font_size=11
+    ):
         super().__init__(parent, bg=bg, width=width, height=height)
+
         self.command = command
         self.default_bg = bg
         self.hover_bg = hover
@@ -18,7 +28,7 @@ class StyledButton(tk.Frame):
             text=text,
             bg=bg,
             fg=fg,
-            font=(FONT_FAMILY, 11, "bold"),
+            font=(FONT_FAMILY, font_size, "bold"),
             cursor="hand2"
         )
         self.label.pack(expand=True, fill="both")

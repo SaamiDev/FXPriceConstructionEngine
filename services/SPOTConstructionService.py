@@ -138,13 +138,11 @@ class SPOTConstructionService:
                 "midSpread": mid_spread,
                 "volatilityScenario": self._extract_volatility_scenario(),
 
-                # 🔽 RUNG MODIFIER (SIEMPRE PRESENTE)
                 "rungModifier": rm_info["rungModifier"],
                 "RMValue": rm_info["RMValue"],
                 "RMType": rm_info["RMType"],
                 "RMMin": rm_info["RMMin"],
 
-                # 🔽 PRICES (SIEMPRE EXISTEN)
                 "priceAfterRungModifier": price_after_rm,
                 "minSpread": effective_min_spread,
                 "priceAfterMinSpread": price_after_min_spread
@@ -263,10 +261,25 @@ class SPOTConstructionService:
     # PRICE AFTER RUNG MODIFIER
     # =========================
 
-    def _apply_rung_modifier_price(self, mid_spread, rm_type, rm_value, fallback_price):
-        # ⬅️ NO RM → HEREDA PRECIO
-        if not rm_type or not rm_value:
-            return fallback_price
+    def _apply_rung_modifier_price(
+            self,
+            mid_spread,
+            rm_type,
+            rm_value,
+            fallback_price
+    ):
+        """
+        Regla:
+        - Si NO hay rung modifier → HEREDA priceAdjustment
+        - Estamos en SPOT logic siempre
+        """
+
+        # ✅ NO RM → herencia directa y explícita
+        if rm_type is None or rm_value is None:
+            return {
+                "bid": fallback_price["bid"],
+                "ask": fallback_price["ask"]
+            }
 
         mid = Decimal(mid_spread["mid"])
         spread = Decimal(mid_spread["spread"])
@@ -290,10 +303,10 @@ class SPOTConstructionService:
         tom_min = Decimal(tom_adj.get("minSpread")) if tom_adj and tom_adj.get("minSpread") else Decimal("0")
         rm_min_val = Decimal(rm_min) if rm_min else Decimal("0")
         eff = max(tom_min, rm_min_val)
-        return format(eff, "f") if eff > 0 else None
+        return format(eff, "f")  # 🔥 nunca None
 
     def _apply_min_spread(self, price, min_spread):
-        if not min_spread:
+        if Decimal(min_spread) == 0:
             return price
 
         bid = Decimal(price["bid"])
