@@ -14,6 +14,10 @@ class SPOTConstructionService:
         self.key = parsed_scp.get("key", {})
         self.base_path = base_path
 
+        # 🔥 SCalc activo (UNO SOLO)
+        self.active_scalc = self._extract_active_scalc()
+        self.active_crl_amt = self._extract_active_crl_amt()
+
     # =========================
     # PUBLIC
     # =========================
@@ -45,6 +49,106 @@ class SPOTConstructionService:
             json.dump(self.build(), f, indent=2, ensure_ascii=False)
 
         return output_path
+
+    # =========================
+    # 🔥 SCALC (PPM) REAL
+    # =========================
+    def _extract_scalc_skew(self, amt: int) -> Dict[str, Any]:
+        """
+        Extrae información de skew desde SCalc.
+
+        Regla:
+        - Se intenta hacer match contra crlAmt == amt
+        - Si no existe crlAmt (caso PPM), se devuelve skew neutro
+        - NUNCA rompe el flujo (siempre devuelve dict)
+        """
+
+        client_prc = self.scp.get("clientPrc", [])
+
+        # Seguridad total
+        if not isinstance(client_prc, list):
+            return {
+                "aAutoSkew": None,
+                "uBidTrSpot": None,
+                "uAskTrSpot": None
+            }
+
+        for entry in client_prc:
+            if not isinstance(entry, dict):
+                continue
+
+            scalc = entry.get("SCalc")
+            if not isinstance(scalc, dict):
+                continue
+
+            # 🔹 Caso CRL rung → match por crlAmt
+            crl_amt = scalc.get("crlAmt")
+            if crl_amt is not None:
+                try:
+                    if int(Decimal(crl_amt)) != int(amt):
+                        continue
+                except Exception:
+                    continue
+
+            # 🔹 Caso PPM (no tiene crlAmt): no aplicar skew
+            return {
+                "aAutoSkew": scalc.get("aAutoSkew"),
+                "uBidTrSpot": scalc.get("uBidTrSpot"),
+                "uAskTrSpot": scalc.get("uAskTrSpot")
+            }
+
+        # 🔚 Fallback seguro
+        return {
+            "aAutoSkew": None,
+            "uBidTrSpot": None,
+            "uAskTrSpot": None
+        }
+
+    def _extract_active_scalc(self) -> Dict[str, Any] | None:
+        for entry in self.scp.get("clientPrc", []):
+            scalc = entry.get("SCalc")
+            if isinstance(scalc, dict) and scalc.get("__type__") == "PPM":
+                return scalc
+        return None
+
+    def _extract_active_crl_amt(self) -> int | None:
+        if not self.active_scalc:
+            return None
+        try:
+            return int(Decimal(self.active_scalc.get("crlAmt")))
+        except Exception:
+            return None
+
+    # =========================
+    # SKEW APPLY
+    # =========================
+
+    def _apply_skew_price(
+        self,
+        price_after_min_spread: Dict[str, str]
+    ) -> Dict[str, str]:
+        """
+        Regla REAL:
+        - aAutoSkew == 0 o None → hereda priceAfterMinSpread
+        - aAutoSkew != 0 → usa uBidTrSpot / uAskTrSpot
+        """
+        if not self.active_scalc:
+            return price_after_min_spread
+
+        a_auto = self.active_scalc.get("aAutoSkew")
+        if a_auto in (None, 0, "0"):
+            return price_after_min_spread
+
+        bid = self.active_scalc.get("uBidTrSpot")
+        ask = self.active_scalc.get("uAskTrSpot")
+
+        if bid is None or ask is None:
+            return price_after_min_spread
+
+        return {
+            "bid": format(Decimal(bid), "f"),
+            "ask": format(Decimal(ask), "f")
+        }
 
     # =========================
     # EXTRACTORS
@@ -101,16 +205,11 @@ class SPOTConstructionService:
                     "source": "TOM"
                 }
 
-            # --- PRICE ADJ (CRL + TOM)
             price_adjustment = self._apply_adjustment(core, adjustment)
-
-            # --- MID / SPREAD
             mid_spread = self._calculate_mid_and_spread(price_adjustment)
-
-            # --- RUNG MODIFIER METADATA
+            scalc_skew = self._extract_scalc_skew(amt) or {}
             rm_info = self._extract_rung_modifier(amt)
 
-            # --- PRICE AFTER RM (HEREDA SI NO HAY RM)
             price_after_rm = self._apply_rung_modifier_price(
                 mid_spread,
                 rm_info["RMType"],
@@ -118,17 +217,27 @@ class SPOTConstructionService:
                 fallback_price=price_adjustment
             )
 
-            # --- MIN SPREAD EFECTIVO
             effective_min_spread = self._calculate_effective_min_spread(
                 adjustment,
                 rm_info["RMMin"]
             )
 
-            # --- PRICE AFTER MIN SPREAD (HEREDA SI NO SE FUERZA)
             price_after_min_spread = self._apply_min_spread(
                 price_after_rm,
                 effective_min_spread
             )
+
+            # 🔥 SOLO EL RUNG ACTIVO TIENE SKEW / VOLUME
+            if self.active_crl_amt and amt == self.active_crl_amt:
+                price_after_skew = self._apply_skew_price(price_after_min_spread)
+                a_auto_skew = self.active_scalc.get("aAutoSkew")
+                skew_meta = self._extract_skew()
+                volume_adj = self._extract_volume_adjustment()
+            else:
+                price_after_skew = price_after_min_spread
+                a_auto_skew = None
+                skew_meta = None
+                volume_adj = None
 
             result.append({
                 "amt": amt,
@@ -145,192 +254,123 @@ class SPOTConstructionService:
 
                 "priceAfterRungModifier": price_after_rm,
                 "minSpread": effective_min_spread,
-                "priceAfterMinSpread": price_after_min_spread
+                "priceAfterMinSpread": price_after_min_spread,
+
+                "skew": self._extract_skew(),
+                "aAutoSkew": scalc_skew.get("aAutoSkew"),
+                "priceAfterSkew": price_after_skew,
+
+                "volumeAdjustment": self._extract_volume_adjustment()
             })
 
         return result
 
     # =========================
-    # PRICE ADJUSTMENT (TOM)
+    # META
     # =========================
 
-    def _apply_adjustment(self, core: Dict[str, str], adjustment: Dict[str, Any] | None) -> Dict[str, str]:
+    def _extract_volume_adjustment(self) -> Dict[str, Any]:
+        tmu = self.scp.get("tmu", {})
+
+        return {
+            "package": tmu.get("package"),
+            "applied": bool(tmu.get("package"))
+        }
+
+    def _extract_skew(self) -> Dict[str, Any]:
+        skew = self.scp.get("skew", {})
+
+        return {
+            "package": skew.get("pkg"),
+            "bPos": skew.get("bPos")
+        }
+
+    # =========================
+    # CORE / TOM / RM / MATH
+    # =========================
+
+    def _apply_adjustment(self, core, adjustment):
         bid = Decimal(core["bid"])
         ask = Decimal(core["ask"])
-
         if adjustment:
             bid += Decimal(adjustment.get("bidSpread", "0"))
             ask += Decimal(adjustment.get("askSpread", "0"))
-
         return {"bid": format(bid, "f"), "ask": format(ask, "f")}
 
-    # =========================
-    # CORE (CRL)
-    # =========================
-
-    def _extract_core_rungs(self) -> List[Dict[str, Any]]:
-        rungs_data = []
-        crl = self.scp.get("crl")
-        if not crl:
-            return rungs_data
-
-        for rung in crl.get("rungs", []):
-            try:
-                rungs_data.append({
-                    "amt": int(rung["amt"]),
-                    "core": {
-                        "bid": str(Decimal(rung["bidPrice"])),
-                        "ask": str(Decimal(rung["askPrice"]))
-                    }
-                })
-            except Exception:
-                continue
-
-        return rungs_data
-
-    # =========================
-    # TOM
-    # =========================
-
-    def _index_tom_rungs(self) -> Dict[int, Dict[str, Any]]:
-        tom = self.scp.get("tom")
-        if not tom:
-            return {}
-
-        index = {}
-        for rung in tom.get("rungs", []):
-            try:
-                index[int(rung["amt"])] = rung
-            except Exception:
-                continue
-        return index
-
-    def _extract_volatility_scenario(self) -> str:
-        return {
-            "N": "Normal",
-            "A": "Active",
-            "B": "Busy",
-            "F": "Fast"
-        }.get(self.scp.get("tom", {}).get("mktMode", "N"), "Normal")
-
-    # =========================
-    # RUNG MODIFIER
-    # =========================
-
-    def _get_active_rung_position(self, amt: int) -> int:
-        for idx, r in enumerate(self.scp.get("crl", {}).get("rungs", []), start=1):
-            if int(r.get("amt")) == amt:
-                return idx
-        return 1
-
-    def _extract_rung_modifier(self, amt: int) -> Dict[str, Any]:
-        tmu = self.scp.get("tmu", {})
-        scenario = self.scp.get("tom", {}).get("mktMode", "N")
-        rms = tmu.get("rungmodifiers", {}).get(scenario)
-
-        if not tmu.get("package") or not rms:
-            return {
-                "rungModifier": None,
-                "RMValue": None,
-                "RMType": None,
-                "RMMin": None
+    def _extract_core_rungs(self):
+        return [{
+            "amt": int(r["amt"]),
+            "core": {
+                "bid": str(Decimal(r["bidPrice"])),
+                "ask": str(Decimal(r["askPrice"]))
             }
+        } for r in self.scp.get("crl", {}).get("rungs", [])]
 
-        rung_pos = self._get_active_rung_position(amt)
+    def _index_tom_rungs(self):
+        return {int(r["amt"]): r for r in self.scp.get("tom", {}).get("rungs", [])}
 
-        for rm in rms:
-            if rm.get("rung") == rung_pos:
-                return {
-                    "rungModifier": (
-                        f"{tmu.get('package')}_{scenario}_FA "
-                        f"(Rung {rung_pos} {rm.get('type')} {rm.get('value')})"
-                    ),
-                    "RMValue": str(rm.get("value")),
-                    "RMType": rm.get("type"),
-                    "RMMin": str(rm.get("min")) if rm.get("min") not in (None, 0, "0") else None
-                }
-
-        return {
-            "rungModifier": None,
-            "RMValue": None,
-            "RMType": None,
-            "RMMin": None
-        }
-
-    # =========================
-    # PRICE AFTER RUNG MODIFIER
-    # =========================
-
-    def _apply_rung_modifier_price(
-            self,
-            mid_spread,
-            rm_type,
-            rm_value,
-            fallback_price
-    ):
-        """
-        Regla:
-        - Si NO hay rung modifier → HEREDA priceAdjustment
-        - Estamos en SPOT logic siempre
-        """
-
-        # ✅ NO RM → herencia directa y explícita
-        if rm_type is None or rm_value is None:
-            return {
-                "bid": fallback_price["bid"],
-                "ask": fallback_price["ask"]
-            }
-
-        mid = Decimal(mid_spread["mid"])
-        spread = Decimal(mid_spread["spread"])
-        rm_val = Decimal(rm_value)
-
-        adjusted_spread = (
-            spread + rm_val if rm_type == "ADDITIVE"
-            else spread * rm_val
+    def _extract_volatility_scenario(self):
+        return {"N": "Normal", "A": "Active", "B": "Busy", "F": "Fast"}.get(
+            self.scp.get("tom", {}).get("mktMode", "N"), "Normal"
         )
 
-        return {
-            "bid": format(mid - adjusted_spread / 2, "f"),
-            "ask": format(mid + adjusted_spread / 2, "f")
-        }
+    def _get_active_rung_position(self, amt):
+        for i, r in enumerate(self.scp.get("crl", {}).get("rungs", []), 1):
+            if int(r["amt"]) == amt:
+                return i
+        return 1
 
-    # =========================
-    # MIN SPREAD
-    # =========================
+    def _extract_rung_modifier(self, amt):
+        tmu = self.scp.get("tmu", {})
+        rms = tmu.get("rungmodifiers", {}).get(
+            self.scp.get("tom", {}).get("mktMode", "N")
+        )
+        if not tmu.get("package") or not rms:
+            return dict.fromkeys(["rungModifier", "RMValue", "RMType", "RMMin"])
+
+        pos = self._get_active_rung_position(amt)
+        for rm in rms:
+            if rm.get("rung") == pos:
+                return {
+                    "rungModifier": f"{tmu.get('package')}_FA (Rung {pos} {rm['type']} {rm['value']})",
+                    "RMValue": str(rm["value"]),
+                    "RMType": rm["type"],
+                    "RMMin": str(rm["min"]) if rm.get("min") else None
+                }
+        return dict.fromkeys(["rungModifier", "RMValue", "RMType", "RMMin"])
+
+    def _apply_rung_modifier_price(self, mid_spread, rm_type, rm_value, fallback_price):
+        if not rm_type or not rm_value:
+            return fallback_price
+        mid = Decimal(mid_spread["mid"])
+        spread = Decimal(mid_spread["spread"])
+        rm = Decimal(rm_value)
+        spread_adj = spread + rm if rm_type == "ADDITIVE" else spread * rm
+        return {
+            "bid": format(mid - spread_adj / 2, "f"),
+            "ask": format(mid + spread_adj / 2, "f")
+        }
 
     def _calculate_effective_min_spread(self, tom_adj, rm_min):
-        tom_min = Decimal(tom_adj.get("minSpread")) if tom_adj and tom_adj.get("minSpread") else Decimal("0")
-        rm_min_val = Decimal(rm_min) if rm_min else Decimal("0")
-        eff = max(tom_min, rm_min_val)
-        return format(eff, "f")  # 🔥 nunca None
+        tom_min = Decimal(tom_adj.get("minSpread")) if tom_adj else Decimal("0")
+        rm_min = Decimal(rm_min) if rm_min else Decimal("0")
+        return format(max(tom_min, rm_min), "f")
 
     def _apply_min_spread(self, price, min_spread):
-        if Decimal(min_spread) == 0:
-            return price
-
         bid = Decimal(price["bid"])
         ask = Decimal(price["ask"])
-        min_sp = Decimal(min_spread)
-
-        if ask - bid >= min_sp:
+        if ask - bid >= Decimal(min_spread):
             return price
-
         mid = (bid + ask) / 2
         return {
-            "bid": format(mid - min_sp / 2, "f"),
-            "ask": format(mid + min_sp / 2, "f")
+            "bid": format(mid - Decimal(min_spread) / 2, "f"),
+            "ask": format(mid + Decimal(min_spread) / 2, "f")
         }
-
-    # =========================
-    # MID / SPREAD
-    # =========================
 
     def _calculate_mid_and_spread(self, price):
         bid = Decimal(price["bid"])
         ask = Decimal(price["ask"])
-        mid = (bid + ask) / 2
         return {
-            "mid": format(mid, "f"),
+            "mid": format((bid + ask) / 2, "f"),
             "spread": format(ask - bid, "f")
         }

@@ -26,6 +26,8 @@ def normalize_numbers(val: str) -> str:
     """
     return _DECIMAL_EU_RE.sub(r'\1.\2', val)
 
+def normalize_key(key: str) -> str:
+    return key.replace("\n", "").replace("\r", "").replace(" ", "")
 
 # ================= ATOMS =================
 
@@ -149,14 +151,13 @@ def parse_map(s: str):
     for part in split_top_level(s):
         if "=" in part:
             k, v = part.split("=", 1)
-            result[k.strip()] = parse_value(v.strip())
+            k = normalize_key(k.strip())   # 🔥 AQUÍ
+            result[k] = parse_value(v.strip())
     return result
 
 
+
 def parse_block(s: str):
-    """
-    Parsea ClassName[ ... ] → dict con __type__
-    """
     s = s.strip()
 
     m = re.match(r'^(\w+)\s*\[(.*)\]$', s, re.DOTALL)
@@ -169,6 +170,7 @@ def parse_block(s: str):
     for part in split_top_level(body):
         if "=" in part:
             k, v = part.split("=", 1)
-            result[k.strip()] = parse_value(v.strip())
+            k = normalize_key(k.strip())   # 🔥 AQUÍ
+            result[k] = parse_value(v.strip())
 
     return result

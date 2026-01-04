@@ -253,8 +253,16 @@ class SpotConstructionScreen(tk.Frame):
 
             self._price_row(grid, row, "SPOT CORE:", r["core"]["bid"], r["core"]["ask"]); row += 1
 
-            adj = r.get("adjustment", {})
-            self._price_row(grid, row, "ADJUSTMENT:", adj.get("bidSpread", "-"), adj.get("askSpread", "-")); row += 1
+            adj = r.get("adjustment") or {}
+
+            self._price_row(
+                grid,
+                row,
+                "ADJUSTMENT:",
+                adj.get("bidSpread", "-"),
+                adj.get("askSpread", "-")
+            )
+            row += 1
 
             pa = r.get("priceAdjustment", {})
             self._price_row(grid, row, "PRICE ADJ:", pa.get("bid", "-"), pa.get("ask", "-")); row += 1
@@ -294,7 +302,62 @@ class SpotConstructionScreen(tk.Frame):
 
             # PRICE AFTER MIN SPREAD (NULL SAFE)
             bid_ms, ask_ms = self._safe_price(r.get("priceAfterMinSpread"))
-            self._price_row(grid, row, "PRICE AFTER MIN SPREAD:", bid_ms, ask_ms)
+            self._price_row(grid, row, "PRICE AFTER MIN SPREAD:", bid_ms, ask_ms); row += 1
+
+            # =========================
+            # SKEW INFO
+            # =========================
+            skew = r.get("skew") or {}
+
+            skew_pkg = skew.get("package") or "-"
+            skew_bpos = skew.get("bPos")
+            skew_bpos = str(skew_bpos) if skew_bpos is not None else "-"
+
+            self._single_row(
+                grid,
+                row,
+                "SKEW PACKAGE:",
+                skew_pkg,
+                TEXT_PRIMARY
+            )
+            row += 1
+
+            self._single_row(
+                grid,
+                row,
+                "SKEW BPOS:",
+                skew_bpos,
+                TEXT_SECONDARY
+            )
+            row += 1
+            # =========================
+            # PRICE AFTER SKEW
+            # =========================
+            bid_skew, ask_skew = self._safe_price(r.get("priceAfterSkew"))
+
+            self._price_row(
+                grid,
+                row,
+                "PRICE AFTER SKEW:",
+                bid_skew,
+                ask_skew
+            )
+            row += 1
+            # =========================
+            # VOLUME ADJUSTMENT
+            # =========================
+            vol = r.get("volumeAdjustment") or {}
+
+            vol_pkg = vol.get("package") or "-"
+
+            self._single_row(
+                grid,
+                row,
+                "VOLUME ADJUSTMENT:",
+                vol_pkg,
+                TEXT_PRIMARY
+            )
+            row += 1
 
     # =========================================================
     # EXPLAIN MODAL

@@ -122,6 +122,7 @@ class SpotAuditExplainService:
 
     def _rung_modifier_section(self) -> str:
         rm = self.rung.get("rungModifier")
+        rm_type = self.rung.get("RMType")
         rm_value = self._safe_decimal(self.rung.get("RMValue"))
         pa_rm = self.rung.get("priceAfterRungModifier")
         ms = self.rung.get("midSpread") or {}
@@ -138,30 +139,79 @@ class SpotAuditExplainService:
                 "RUNG MODIFIER\n"
                 "-------------\n"
                 f"Rung Modifier configurado:\n{rm}\n"
-                f"Valor configurado = {rm_value}\n\n"
-                "El modificador no se ha aplicado al precio final.\n"
-                "Motivo: el escenario, el tamaño o las condiciones no activan su uso."
+                "El modificador no se ha aplicado al precio."
             )
 
+        mid = self._safe_decimal(ms.get("mid"))
         spread = self._safe_decimal(ms.get("spread"))
-        spread_rm = spread * rm_value
+
+        # =========================
+        # ADDITIVE
+        # =========================
+        if rm_type == "ADDITIVE":
+            new_spread = spread + rm_value
+            half = new_spread / 2
+
+            return (
+                "RUNG MODIFIER\n"
+                "-------------\n"
+                f"Rung Modifier activo:\n{rm}\n"
+                "Tipo de modificador: ADDITIVE\n"
+                f"Valor aplicado = {rm_value}\n\n"
+
+                "Fórmula aplicada:\n"
+                "BID = Mid – ((Spread + RMValue) / 2)\n"
+                "ASK = Mid + ((Spread + RMValue) / 2)\n\n"
+
+                "Sustitución de valores:\n"
+                f"BID = {mid} – (({spread} + {rm_value}) / 2)\n"
+                f"ASK = {mid} + (({spread} + {rm_value}) / 2)\n\n"
+
+                "Cálculo intermedio:\n"
+                f"(Spread + RMValue) = {new_spread}\n"
+                f"(Spread + RMValue) / 2 = {half}\n\n"
+
+                "Resultado:\n"
+                f"Bid_RM = {pa_rm.get('bid')}\n"
+                f"Ask_RM = {pa_rm.get('ask')}"
+            )
+
+        # =========================
+        # MULTIPLY
+        # =========================
+        if rm_type == "MULTIPLY":
+            new_spread = rm_value * spread
+            half = new_spread / 2
+
+            return (
+                "RUNG MODIFIER\n"
+                "-------------\n"
+                f"Rung Modifier activo:\n{rm}\n"
+                "Tipo de modificador: MULTIPLY\n"
+                f"Valor aplicado = {rm_value}\n\n"
+
+                "Fórmula aplicada:\n"
+                "BID = Mid – ((RMValue × Spread) / 2)\n"
+                "ASK = Mid + ((RMValue × Spread) / 2)\n\n"
+
+                "Sustitución de valores:\n"
+                f"BID = {mid} – (({rm_value} × {spread}) / 2)\n"
+                f"ASK = {mid} + (({rm_value} × {spread}) / 2)\n\n"
+
+                "Cálculo intermedio:\n"
+                f"(RMValue × Spread) = {new_spread}\n"
+                f"(RMValue × Spread) / 2 = {half}\n\n"
+
+                "Resultado:\n"
+                f"Bid_RM = {pa_rm.get('bid')}\n"
+                f"Ask_RM = {pa_rm.get('ask')}"
+            )
 
         return (
             "RUNG MODIFIER\n"
             "-------------\n"
-            f"Rung Modifier activo:\n{rm}\n"
-            f"Valor aplicado = {rm_value}\n\n"
-            "Tipo de modificador: MULTIPLY\n"
-            "El spread se ajusta multiplicándolo por el factor configurado:\n\n"
-            "Spread_RM = Spread * RMValue\n"
-            f"          = {spread} * {rm_value}\n"
-            f"          = {spread_rm}\n\n"
-            "El precio se recalcula de forma simétrica alrededor del Mid:\n"
-            "Bid_RM = Mid - (Spread_RM / 2)\n"
-            "Ask_RM = Mid + (Spread_RM / 2)\n\n"
-            "Resultado:\n"
-            f"- Bid_RM = {pa_rm.get('bid')}\n"
-            f"- Ask_RM = {pa_rm.get('ask')}"
+            f"Rung Modifier configurado:\n{rm}\n"
+            "Tipo no reconocido. No se aplica ajuste."
         )
 
     def _min_spread_section(self) -> str:
